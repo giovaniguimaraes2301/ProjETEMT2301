@@ -126,61 +126,179 @@ function App() {
   const generatePDFReport = async (period = 'daily') => {
     try {
       setLoading(true);
+      console.log(`Gerando relatório ${period}...`);
+      
       const response = await axios.get(`${API}/reports/data/${period}`);
       const data = response.data;
+      
+      console.log('Dados do relatório:', data);
 
-      const doc = new jsPDF();
+      const doc = new jsPDF('p', 'pt', 'a4');
       const pageWidth = doc.internal.pageSize.getWidth();
 
-      // Header
+      // Header com cor azul
       doc.setFillColor(48, 102, 211);
-      doc.rect(0, 0, pageWidth, 25, 'F');
+      doc.rect(0, 0, pageWidth, 60, 'F');
       
-      doc.setFontSize(20);
+      // Logo VT
+      doc.setFillColor(255, 255, 255);
+      doc.rect(20, 15, 30, 30, 'F');
+      doc.setFontSize(16);
+      doc.setTextColor(48, 102, 211);
+      doc.text('VT', 28, 35);
+      
+      // Título
+      doc.setFontSize(18);
       doc.setTextColor(255, 255, 255);
-      doc.text('VitalTech - Relatório Médico', 20, 18);
+      doc.setFont('helvetica', 'bold');
+      doc.text('VitalTech - Relatório Médico', 60, 35);
+
+      // Data de geração
+      doc.setFontSize(10);
+      doc.text(`Gerado: ${new Date().toLocaleString('pt-BR')}`, pageWidth - 150, 25);
 
       // Informações do paciente
       doc.setFontSize(12);
       doc.setTextColor(0, 0, 0);
-      doc.text(`Paciente: ${data.patient_profile?.nome || 'N/A'}`, 20, 40);
-      doc.text(`Período: ${period}`, 20, 50);
-      doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, 20, 60);
+      doc.setFont('helvetica', 'normal');
+      
+      const patientName = data.patient_profile?.nome || 'Visitante da Feira';
+      const patientAge = data.patient_profile?.idade || 'N/A';
+      
+      doc.text(`Paciente: ${patientName}`, 20, 90);
+      doc.text(`Idade: ${patientAge} anos`, 20, 110);
+      doc.text(`Período: ${period === 'daily' ? 'Diário' : period === 'weekly' ? 'Semanal' : 'Mensal'}`, 20, 130);
+      doc.text(`Total de leituras: ${data.vital_signs?.length || 0}`, 20, 150);
 
-      // Tabela de sinais vitais
+      let currentY = 180;
+
+      // Resumo dos sinais vitais
       if (data.vital_signs && data.vital_signs.length > 0) {
-        const tableData = data.vital_signs.slice(0, 20).map(reading => [
-          new Date(reading.timestamp).toLocaleString('pt-BR'),
-          reading.sensor_type,
-          reading.value,
-          reading.unit || ''
-        ]);
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Resumo dos Sinais Vitais:', 20, currentY);
+        currentY += 25;
 
-        doc.autoTable({
-          startY: 70,
-          head: [['Data/Hora', 'Sensor', 'Valor', 'Unidade']],
-          body: tableData,
-          styles: { fontSize: 8 },
-          headStyles: { fillColor: [48, 102, 211] }
+        // Calcular estatísticas
+        const stats = {};
+        data.vital_signs.forEach(reading => {
+          const type = reading.sensor_type;
+          if (!stats[type]) {
+            stats[type] = { values: [], unit: reading.unit || '' };
+          }
+          stats[type].values.push(reading.value);
         });
+
+        // Mostrar estatísticas
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        
+        Object.keys(stats).forEach(type => {
+          const values = stats[type].values;
+          const avg = (values.reduce((a, b) => a + b, 0) / values.length).toFixed(1);
+          const min = Math.min(...values);
+          const max = Math.max(...values);
+          
+          const typeName = type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+          doc.text(`${typeName}: Média ${avg}${stats[type].unit}, Min ${min}, Max ${max}`, 30, currentY);
+          currentY += 15;
+        });
+
+        currentY += 10;
+
+        // Tabela de últimos registros
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Últimos Registros:', 20, currentY);
+        currentY += 20;
+
+        if (data.vital_signs.length > 0) {
+          const tableData = data.vital_signs.slice(0, 15).map(reading => [
+            new Date(reading.timestamp).toLocaleString('pt-BR', {
+              day: '2-digit',
+              month: '2-digit',
+              hour: '2-digit',
+              minute: '2-digit'
+            }),
+            reading.sensor_type.replace('_', ' '),
+            reading.value.toString(),
+            reading.unit || ''
+          ]);
+
+          doc.autoTable({
+            startY: currentY,
+            head: [['Data/Hora', 'Sensor', 'Valor', 'Unidade']],
+            body: tableData,
+            styles: { 
+              fontSize: 8,
+              cellPadding: 4
+            },
+            headStyles: { 
+              fillColor: [48, 102, 211],
+              textColor: 255,
+              fontStyle: 'bold'
+            },
+            alternateRowStyles: {
+              fillColor: [250, 250, 255]
+            },
+            margin: { left: 20, right: 20 }
+          });
+
+          currentY = doc.lastAutoTable.finalY + 20;
+        }
       }
 
       // Alertas
       if (data.alerts && data.alerts.length > 0) {
-        doc.setFontSize(14);
-        doc.text('Alertas:', 20, doc.lastAutoTable.finalY + 20);
+        // Verificar se há espaço na página
+        if (currentY > pageHeight - 100) {
+          doc.addPage();
+          currentY = 40;
+        }
         
-        data.alerts.slice(0, 10).forEach((alert, index) => {
-          doc.setFontSize(10);
-          doc.text(`• ${alert.title}: ${alert.message}`, 25, doc.lastAutoTable.finalY + 35 + (index * 8));
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Alertas do Sistema:', 20, currentY);
+        currentY += 20;
+        
+        data.alerts.slice(0, 8).forEach((alert, index) => {
+          if (currentY > pageHeight - 40) {
+            doc.addPage();
+            currentY = 40;
+          }
+          
+          doc.setFontSize(9);
+          doc.setFont('helvetica', 'normal');
+          doc.text(`• ${alert.title || 'Alerta'}: ${alert.message || 'N/A'}`, 30, currentY);
+          currentY += 12;
         });
+      } else {
+        if (currentY > pageHeight - 60) {
+          doc.addPage();
+          currentY = 40;
+        }
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'italic');
+        doc.text('Nenhum alerta registrado no período.', 30, currentY);
       }
 
-      doc.save(`VitalTech_Relatorio_${period}_${new Date().toISOString().slice(0,10)}.pdf`);
-      showToast('Relatório PDF gerado!');
+      // Footer
+      const footerY = doc.internal.pageSize.getHeight() - 30;
+      doc.setFontSize(8);
+      doc.setTextColor(128, 128, 128);
+      doc.text('Relatório gerado automaticamente pelo VitalTech', 20, footerY);
+      doc.text(`Página 1`, pageWidth - 60, footerY);
+
+      // Salvar o PDF
+      const fileName = `VitalTech_Relatorio_${period}_${new Date().toISOString().slice(0,10)}.pdf`;
+      doc.save(fileName);
+      
+      showToast(`Relatório ${period} gerado e baixado com sucesso!`);
+      console.log('PDF gerado com sucesso');
+      
     } catch (error) {
       console.error('Erro ao gerar relatório:', error);
-      showToast('Erro ao gerar relatório', 'error');
+      showToast(`Erro ao gerar relatório: ${error.message}`, 'error');
     } finally {
       setLoading(false);
     }
