@@ -12,7 +12,6 @@ import json
 import uuid
 
 # Importar configurações e modelos
-from firebase_config import get_firestore_db
 from models import *
 from ai_analysis import analyzer
 
