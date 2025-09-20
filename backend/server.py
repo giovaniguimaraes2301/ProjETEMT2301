@@ -144,7 +144,6 @@ async def generate_realistic_vital_signs():
 async def simulation_loop():
     """Loop principal da simulação"""
     global simulation_active
-    db = get_firestore_db()
     
     logger.info("Iniciando simulação de dados...")
     
@@ -153,28 +152,43 @@ async def simulation_loop():
             # Gerar novos sinais vitais
             vital_signs = await generate_realistic_vital_signs()
             
-            # Salvar no Firestore
-            batch = db.batch()
-            for reading in vital_signs:
-                doc_ref = db.collection('vital_signs').document()
-                batch.set(doc_ref, reading.dict())
-            
-            batch.commit()
+            if USE_FIREBASE:
+                # Salvar no Firestore
+                db = get_firestore_db()
+                batch = db.batch()
+                for reading in vital_signs:
+                    doc_ref = db.collection('vital_signs').document()
+                    batch.set(doc_ref, reading.dict())
+                batch.commit()
+            else:
+                # Salvar no MongoDB
+                for reading in vital_signs:
+                    await mongodb_fallback.save_vital_sign(reading.dict())
             
             # Executar análise IA a cada 3 leituras
             if random.random() < 0.3:  # 30% chance de análise
                 readings_data = [reading.dict() for reading in vital_signs]
                 analysis = await analyzer.analyze_vital_signs(readings_data)
                 
-                # Salvar análise
-                analysis_ref = db.collection('ai_analyses').document()
-                analysis_ref.set(analysis.dict())
-                
-                # Salvar alertas se houver
-                if analysis.alerts_generated:
-                    for alert in analysis.alerts_generated:
-                        alert_ref = db.collection('alerts').document()
-                        alert_ref.set(alert.dict())
+                if USE_FIREBASE:
+                    # Salvar análise no Firestore
+                    db = get_firestore_db()
+                    analysis_ref = db.collection('ai_analyses').document()
+                    analysis_ref.set(analysis.dict())
+                    
+                    # Salvar alertas se houver
+                    if analysis.alerts_generated:
+                        for alert in analysis.alerts_generated:
+                            alert_ref = db.collection('alerts').document()
+                            alert_ref.set(alert.dict())
+                else:
+                    # Salvar no MongoDB
+                    await mongodb_fallback.save_analysis(analysis.dict())
+                    
+                    # Salvar alertas se houver
+                    if analysis.alerts_generated:
+                        for alert in analysis.alerts_generated:
+                            await mongodb_fallback.save_alert(alert.dict())
             
             logger.debug(f"Dados simulados salvos: {len(vital_signs)} leituras")
             await asyncio.sleep(3)  # Intervalo de 3 segundos
