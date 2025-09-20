@@ -133,6 +133,8 @@ function App() {
       
       console.log('Dados do relatório:', data);
 
+      // Importar jsPDF e autoTable dinamicamente
+      const { jsPDF } = window.jspdf;
       const doc = new jsPDF('p', 'pt', 'a4');
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
@@ -205,53 +207,63 @@ function App() {
           currentY += 15;
         });
 
-        currentY += 10;
+        currentY += 20;
 
-        // Tabela de últimos registros
+        // Tabela manual (sem autoTable por enquanto)
         doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
         doc.text('Últimos Registros:', 20, currentY);
         currentY += 20;
 
-        if (data.vital_signs.length > 0) {
-          const tableData = data.vital_signs.slice(0, 15).map(reading => [
-            new Date(reading.timestamp).toLocaleString('pt-BR', {
-              day: '2-digit',
-              month: '2-digit',
-              hour: '2-digit',
-              minute: '2-digit'
-            }),
-            reading.sensor_type.replace('_', ' '),
-            reading.value.toString(),
-            reading.unit || ''
-          ]);
+        // Cabeçalho da tabela
+        doc.setFillColor(48, 102, 211);
+        doc.rect(20, currentY, pageWidth - 40, 20, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Data/Hora', 25, currentY + 15);
+        doc.text('Sensor', 150, currentY + 15);
+        doc.text('Valor', 300, currentY + 15);
+        doc.text('Unidade', 400, currentY + 15);
+        currentY += 25;
 
-          doc.autoTable({
-            startY: currentY,
-            head: [['Data/Hora', 'Sensor', 'Valor', 'Unidade']],
-            body: tableData,
-            styles: { 
-              fontSize: 8,
-              cellPadding: 4
-            },
-            headStyles: { 
-              fillColor: [48, 102, 211],
-              textColor: 255,
-              fontStyle: 'bold'
-            },
-            alternateRowStyles: {
-              fillColor: [250, 250, 255]
-            },
-            margin: { left: 20, right: 20 }
+        // Dados da tabela
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        
+        const recentData = data.vital_signs.slice(0, 12); // Primeiros 12 registros
+        recentData.forEach((reading, index) => {
+          if (currentY > pageHeight - 50) {
+            doc.addPage();
+            currentY = 40;
+          }
+          
+          const bgColor = index % 2 === 0 ? [250, 250, 255] : [255, 255, 255];
+          doc.setFillColor(...bgColor);
+          doc.rect(20, currentY - 10, pageWidth - 40, 15, 'F');
+          
+          const dateTime = new Date(reading.timestamp).toLocaleString('pt-BR', {
+            day: '2-digit',
+            month: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
           });
+          
+          const sensorName = reading.sensor_type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+          
+          doc.text(dateTime, 25, currentY);
+          doc.text(sensorName, 150, currentY);
+          doc.text(reading.value.toString(), 300, currentY);
+          doc.text(reading.unit || '', 400, currentY);
+          currentY += 15;
+        });
 
-          currentY = doc.lastAutoTable.finalY + 20;
-        }
+        currentY += 10;
       }
 
       // Alertas
       if (data.alerts && data.alerts.length > 0) {
-        // Verificar se há espaço na página
         if (currentY > pageHeight - 100) {
           doc.addPage();
           currentY = 40;
@@ -259,6 +271,7 @@ function App() {
         
         doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
+        doc.setTextColor(0, 0, 0);
         doc.text('Alertas do Sistema:', 20, currentY);
         currentY += 20;
         
@@ -280,15 +293,16 @@ function App() {
         }
         doc.setFontSize(10);
         doc.setFont('helvetica', 'italic');
+        doc.setTextColor(128, 128, 128);
         doc.text('Nenhum alerta registrado no período.', 30, currentY);
       }
 
       // Footer
-      const footerY = doc.internal.pageSize.getHeight() - 30;
+      const footerY = pageHeight - 30;
       doc.setFontSize(8);
       doc.setTextColor(128, 128, 128);
       doc.text('Relatório gerado automaticamente pelo VitalTech', 20, footerY);
-      doc.text(`Página 1`, pageWidth - 60, footerY);
+      doc.text('Página 1', pageWidth - 60, footerY);
 
       // Salvar o PDF
       const fileName = `VitalTech_Relatorio_${period}_${new Date().toISOString().slice(0,10)}.pdf`;
@@ -298,7 +312,7 @@ function App() {
       console.log('PDF gerado com sucesso');
       
     } catch (error) {
-      console.error('Erro ao gerar relatório:', error);
+      console.error('Erro detalhado ao gerar relatório:', error);
       showToast(`Erro ao gerar relatório: ${error.message}`, 'error');
     } finally {
       setLoading(false);
