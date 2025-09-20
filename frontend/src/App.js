@@ -288,110 +288,169 @@ function App() {
   const prepareChartData = () => {
     // Se não há dados, retornar estrutura vazia
     if (!vitalSigns || vitalSigns.length === 0) {
+      console.log('Sem dados para o gráfico');
       return {
-        labels: [],
+        labels: ['Aguardando dados...'],
         datasets: [
           {
             label: 'Freq. Cardíaca (bpm)',
-            data: [],
+            data: [0],
             borderColor: '#3066d3',
             backgroundColor: 'rgba(48, 102, 211, 0.1)',
             tension: 0.2,
+            fill: false,
           },
           {
             label: 'Pressão (mmHg)',
-            data: [],
+            data: [0],
             borderColor: '#e67e22',
             backgroundColor: 'rgba(230, 126, 34, 0.1)',
             tension: 0.2,
+            fill: false,
           },
           {
             label: 'Oxigenação (%)',
-            data: [],
+            data: [0],
             borderColor: '#27ae60',
             backgroundColor: 'rgba(39, 174, 96, 0.1)',
             tension: 0.2,
+            fill: false,
           },
           {
             label: 'Temperatura (°C)',
-            data: [],
+            data: [0],
             borderColor: '#c0392b',
             backgroundColor: 'rgba(192, 57, 43, 0.1)',
             tension: 0.2,
+            fill: false,
           },
           {
             label: 'GSR (Ω)',
-            data: [],
+            data: [0],
             borderColor: '#8e44ad',
             backgroundColor: 'rgba(142, 68, 173, 0.1)',
             tension: 0.2,
+            fill: false,
             yAxisID: 'y1',
           },
         ]
       };
     }
 
-    // Pegar últimas 20 leituras e agrupar por timestamp
-    const recentReadings = vitalSigns.slice(0, 20).reverse();
-    const groupedByTime = {};
+    // Debug: Log dos dados recebidos
+    console.log('Dados vitais recebidos:', vitalSigns.slice(0, 5));
+
+    // Preparar dados organizados por sensor
+    const sensorData = {
+      heart_rate: [],
+      blood_pressure: [],
+      oxygen_saturation: [],
+      temperature: [],
+      gsr: []
+    };
+    
+    const timeLabels = [];
+    
+    // Agrupar dados por timestamp (pegar os últimos 15 pontos)
+    const recentReadings = vitalSigns.slice(0, 30); // Mais dados para garantir cobertura
+    
+    // Criar um mapa de timestamps únicos
+    const timestampMap = new Map();
     
     recentReadings.forEach(reading => {
-      const time = new Date(reading.timestamp).toLocaleTimeString('pt-BR', { 
+      const timestamp = reading.timestamp;
+      const timeLabel = new Date(timestamp).toLocaleTimeString('pt-BR', { 
         hour: '2-digit', 
-        minute: '2-digit' 
+        minute: '2-digit',
+        second: '2-digit'
       });
-      if (!groupedByTime[time]) {
-        groupedByTime[time] = {};
+      
+      if (!timestampMap.has(timestamp)) {
+        timestampMap.set(timestamp, {
+          time: timeLabel,
+          sensors: {}
+        });
       }
-      groupedByTime[time][reading.sensor_type] = reading.value;
+      
+      timestampMap.get(timestamp).sensors[reading.sensor_type] = reading.value;
+    });
+    
+    // Converter mapa para arrays ordenados
+    const sortedEntries = Array.from(timestampMap.entries())
+      .sort((a, b) => new Date(a[0]) - new Date(b[0]))
+      .slice(-15); // Últimos 15 pontos
+    
+    // Extrair labels e dados
+    sortedEntries.forEach(([timestamp, data]) => {
+      timeLabels.push(data.time);
+      sensorData.heart_rate.push(data.sensors.heart_rate || null);
+      sensorData.blood_pressure.push(data.sensors.blood_pressure || null);
+      sensorData.oxygen_saturation.push(data.sensors.oxygen_saturation || null);
+      sensorData.temperature.push(data.sensors.temperature || null);
+      sensorData.gsr.push(data.sensors.gsr || null);
     });
 
-    const labels = Object.keys(groupedByTime);
+    // Debug: Log dos dados processados
+    console.log('Labels de tempo:', timeLabels);
+    console.log('Dados dos sensores:', sensorData);
+
     const datasets = [
       {
         label: 'Freq. Cardíaca (bpm)',
-        data: labels.map(time => groupedByTime[time].heart_rate || null),
+        data: sensorData.heart_rate,
         borderColor: '#3066d3',
         backgroundColor: 'rgba(48, 102, 211, 0.1)',
         tension: 0.2,
         fill: false,
+        pointRadius: 4,
+        pointHoverRadius: 6,
       },
       {
         label: 'Pressão (mmHg)',
-        data: labels.map(time => groupedByTime[time].blood_pressure || null),
+        data: sensorData.blood_pressure,
         borderColor: '#e67e22',
         backgroundColor: 'rgba(230, 126, 34, 0.1)',
         tension: 0.2,
         fill: false,
+        pointRadius: 4,
+        pointHoverRadius: 6,
       },
       {
         label: 'Oxigenação (%)',
-        data: labels.map(time => groupedByTime[time].oxygen_saturation || null),
+        data: sensorData.oxygen_saturation,
         borderColor: '#27ae60',
         backgroundColor: 'rgba(39, 174, 96, 0.1)',
         tension: 0.2,
         fill: false,
+        pointRadius: 4,
+        pointHoverRadius: 6,
       },
       {
         label: 'Temperatura (°C)',
-        data: labels.map(time => groupedByTime[time].temperature || null),
+        data: sensorData.temperature,
         borderColor: '#c0392b',
         backgroundColor: 'rgba(192, 57, 43, 0.1)',
         tension: 0.2,
         fill: false,
+        pointRadius: 4,
+        pointHoverRadius: 6,
       },
       {
         label: 'GSR (Ω)',
-        data: labels.map(time => groupedByTime[time].gsr || null),
+        data: sensorData.gsr,
         borderColor: '#8e44ad',
         backgroundColor: 'rgba(142, 68, 173, 0.1)',
         tension: 0.2,
         fill: false,
+        pointRadius: 4,
+        pointHoverRadius: 6,
         yAxisID: 'y1', // Eixo secundário para GSR
       },
     ];
 
-    return { labels, datasets };
+    const result = { labels: timeLabels, datasets };
+    console.log('Resultado final do gráfico:', result);
+    return result;
   };
 
   const chartOptions = {
