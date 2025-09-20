@@ -82,6 +82,63 @@ body {
   align-items: center;
 }
 
+.esp32-status {
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.status-indicator.connected {
+  color: #27ae60;
+}
+
+.status-indicator.disconnected {
+  color: #e74c3c;
+}
+
+/* ===== TELA CHEIA ===== */
+.App:fullscreen {
+  background: var(--light-bg);
+}
+
+.App:fullscreen .site-header {
+  height: 60px;
+}
+
+.App:fullscreen .site-title {
+  font-size: 22px;
+}
+
+.App:fullscreen .chart-container {
+  height: 400px;
+}
+
+.App:fullscreen .vital-signs-grid {
+  grid-template-columns: repeat(5, 1fr);
+  gap: 20px;
+}
+
+.App:fullscreen .vital-sign-value {
+  font-size: 24px;
+}
+
+.App:fullscreen .card {
+  padding: 30px;
+}
+
+/* ===== RESPONSIVE FULLSCREEN ===== */
+@media (max-width: 1024px) {
+  .App:fullscreen .vital-signs-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  
+  .App:fullscreen .chart-container {
+    height: 300px;
+  }
+}
+
 /* ===== BOTÕES ===== */
 .btn {
   background: var(--primary-blue);
