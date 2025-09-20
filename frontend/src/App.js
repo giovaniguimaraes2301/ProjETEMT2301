@@ -695,15 +695,17 @@ function App() {
     fetchVitalSigns();
     fetchAlerts();
     fetchProfile();
+    checkESP32Status();
 
     // Atualizar dados a cada 5 segundos
     const interval = setInterval(() => {
       fetchLatestReadings();
       fetchVitalSigns();
+      checkESP32Status();
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [fetchLatestReadings, fetchVitalSigns, fetchAlerts, fetchProfile]);
+  }, [fetchLatestReadings, fetchVitalSigns, fetchAlerts, fetchProfile, checkESP32Status]);
 
   // Render
   return (
