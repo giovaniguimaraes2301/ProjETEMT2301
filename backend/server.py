@@ -138,18 +138,21 @@ async def simulation_loop():
             for reading in vital_signs:
                 await mongodb_fallback.save_vital_sign(reading.dict())
             
-            # Executar análise IA a cada 3 leituras
-            if random.random() < 0.3:  # 30% chance de análise
-                readings_data = [reading.dict() for reading in vital_signs]
-                analysis = await analyzer.analyze_vital_signs(readings_data)
-                
-                # Salvar no MongoDB
-                await mongodb_fallback.save_analysis(analysis.dict())
-                
-                # Salvar alertas se houver
-                if analysis.alerts_generated:
-                    for alert in analysis.alerts_generated:
-                        await mongodb_fallback.save_alert(alert.dict())
+            # Executar análise IA ocasionalmente (sem bloquear)
+            if random.random() < 0.1:  # 10% chance de análise (reduzido)
+                try:
+                    readings_data = [reading.dict() for reading in vital_signs]
+                    analysis = await analyzer.analyze_vital_signs(readings_data)
+                    
+                    # Salvar no MongoDB
+                    await mongodb_fallback.save_analysis(analysis.dict())
+                    
+                    # Salvar alertas se houver
+                    if analysis.alerts_generated:
+                        for alert in analysis.alerts_generated:
+                            await mongodb_fallback.save_alert(alert.dict())
+                except Exception as e:
+                    logger.warning(f"Erro na análise IA (continuando): {e}")
             
             logger.debug(f"Dados simulados salvos: {len(vital_signs)} leituras")
             await asyncio.sleep(3)  # Intervalo de 3 segundos
