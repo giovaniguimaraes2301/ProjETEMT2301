@@ -92,3 +92,7 @@ vitaltech_complete.zip
 # Environment files
 *.env
 *.env.*
+-e 
+# Environment files
+*.env
+*.env.*
