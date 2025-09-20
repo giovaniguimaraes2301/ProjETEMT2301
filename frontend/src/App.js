@@ -135,6 +135,7 @@ function App() {
 
       const doc = new jsPDF('p', 'pt', 'a4');
       const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
 
       // Header com cor azul
       doc.setFillColor(48, 102, 211);
