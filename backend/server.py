@@ -3,6 +3,7 @@
 
 from fastapi import FastAPI, APIRouter, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from pathlib import Path
 import os
@@ -26,8 +27,51 @@ load_dotenv(ROOT_DIR / '.env')
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Criar app FastAPI
-app = FastAPI(title="VitalTech API", version="1.0.0")
+# Variáveis globais para simulação
+simulation_task = None
+simulation_active = False
+
+# === LIFESPAN EVENTS (SUBSTITUI on_event) ===
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Eventos de inicialização e finalização da aplicação"""
+    # STARTUP
+    logger.info("VitalTech API iniciando...")
+    
+    try:
+        await mongodb_fallback.initialize()
+        logger.info("MongoDB conectado com sucesso")
+    except Exception as e:
+        logger.error(f"Erro na conexão MongoDB: {e}")
+    
+    # Iniciar simulação automaticamente (para demonstração)
+    global simulation_active, simulation_task
+    simulation_active = True
+    simulation_task = asyncio.create_task(simulation_loop())
+    logger.info("Simulação de dados iniciada automaticamente")
+    
+    yield  # Aplicação roda aqui
+    
+    # SHUTDOWN
+    logger.info("VitalTech API finalizando...")
+    
+    simulation_active = False
+    if simulation_task:
+        simulation_task.cancel()
+        try:
+            await simulation_task
+        except asyncio.CancelledError:
+            pass
+    
+    logger.info("Simulação parada")
+
+# Criar app FastAPI com lifespan
+app = FastAPI(
+    title="VitalTech API", 
+    version="1.0.0",
+    lifespan=lifespan
+)
 api_router = APIRouter(prefix="/api")
 
 # Middleware CORS
