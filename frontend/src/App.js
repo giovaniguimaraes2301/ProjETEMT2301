@@ -721,6 +721,18 @@ function App() {
         </div>
 
         <div className="header-actions">
+          <div className="esp32-status">
+            <span className={`status-indicator ${esp32Connected ? 'connected' : 'disconnected'}`}>
+              {esp32Connected ? '🟢 ESP32' : '🔴 Simulação'}
+            </span>
+          </div>
+          <button 
+            className="btn ghost" 
+            onClick={toggleFullscreen}
+            title={isFullscreen ? 'Sair da tela cheia' : 'Tela cheia'}
+          >
+            <i className={`fas fa-${isFullscreen ? 'compress' : 'expand'}`}></i>
+          </button>
           <button 
             className="btn ghost" 
             onClick={() => setDarkMode(!darkMode)}
