@@ -512,33 +512,3 @@ async def cleanup_demo_data():
 
 # Incluir router na aplicação
 app.include_router(api_router)
-
-# Eventos de inicialização
-@app.on_event("startup")
-async def startup_event():
-    """Inicialização da aplicação"""
-    logger.info("VitalTech API iniciando...")
-    
-    try:
-        await mongodb_fallback.initialize()
-        logger.info("MongoDB conectado com sucesso")
-    except Exception as e:
-        logger.error(f"Erro na conexão MongoDB: {e}")
-    
-    # Iniciar simulação automaticamente (para demonstração)
-    global simulation_active, simulation_task
-    simulation_active = True
-    simulation_task = asyncio.create_task(simulation_loop())
-    logger.info("Simulação de dados iniciada automaticamente")
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Limpeza na finalização"""
-    logger.info("VitalTech API finalizando...")
-    
-    global simulation_active, simulation_task
-    simulation_active = False
-    if simulation_task:
-        simulation_task.cancel()
-    
-    logger.info("Simulação parada")
