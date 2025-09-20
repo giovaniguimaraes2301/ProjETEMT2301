@@ -1,3 +1,6 @@
+# Conteúdo do server_mongodb.py (versão limpa)
+# Copiando todo o conteúdo do server_mongodb.py para server.py
+
 from fastapi import FastAPI, APIRouter, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -12,6 +15,7 @@ import json
 import uuid
 
 # Importar configurações e modelos
+from mongodb_fallback import mongodb_fallback
 from models import *
 from ai_analysis import analyzer
 
@@ -21,11 +25,6 @@ load_dotenv(ROOT_DIR / '.env')
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-# Configurar Firebase com fallback para MongoDB
-USE_FIREBASE = False  # Desabilitar Firebase temporariamente
-logger.info("Usando MongoDB como banco de dados principal")
-from mongodb_fallback import mongodb_fallback
 
 # Criar app FastAPI
 app = FastAPI(title="VitalTech API", version="1.0.0")
@@ -55,21 +54,11 @@ async def root():
 async def health_check():
     """Verificação de saúde da API"""
     try:
-        if USE_FIREBASE:
-            db = get_firestore_db()
-            # Teste simples de conexão
-            test_ref = db.collection('health_check').document('test')
-            test_ref.set({'timestamp': datetime.utcnow(), 'status': 'ok'})
-            db_status = "firebase_connected"
-        else:
-            # Usar MongoDB fallback
-            await mongodb_fallback.initialize()
-            db_status = "mongodb_connected"
-        
+        await mongodb_fallback.initialize()
         return {
             "status": "healthy",
             "timestamp": datetime.utcnow(),
-            "database": db_status,
+            "database": "mongodb_connected",
             "simulation": "active" if simulation_active else "inactive"
         }
     except Exception as e:
@@ -95,17 +84,16 @@ async def generate_realistic_vital_signs():
     if random.random() < 0.1:  # 10% chance de anomalia
         anomaly_type = random.choice(list(base_values.keys()))
         if anomaly_type == "heart_rate":
-            base_values[anomaly_type] = random.choice([45, 130])  # Bradicardia ou taquicardia
+            base_values[anomaly_type] = random.choice([45, 130])
         elif anomaly_type == "blood_pressure":
-            base_values[anomaly_type] = random.choice([85, 165])  # Hipo ou hipertensão
+            base_values[anomaly_type] = random.choice([85, 165])
         elif anomaly_type == "oxygen_saturation":
-            base_values[anomaly_type] = random.randint(88, 93)  # Hipóxia leve
+            base_values[anomaly_type] = random.randint(88, 93)
         elif anomaly_type == "temperature":
-            base_values[anomaly_type] = random.choice([35.2, 38.5])  # Hipo ou hipertermia
+            base_values[anomaly_type] = random.choice([35.2, 38.5])
     
     readings = []
     
-    # Criar leituras para cada sensor
     readings.append(HeartRateReading(
         value=base_values["heart_rate"],
         timestamp=now
@@ -146,43 +134,22 @@ async def simulation_loop():
             # Gerar novos sinais vitais
             vital_signs = await generate_realistic_vital_signs()
             
-            if USE_FIREBASE:
-                # Salvar no Firestore
-                db = get_firestore_db()
-                batch = db.batch()
-                for reading in vital_signs:
-                    doc_ref = db.collection('vital_signs').document()
-                    batch.set(doc_ref, reading.dict())
-                batch.commit()
-            else:
-                # Salvar no MongoDB
-                for reading in vital_signs:
-                    await mongodb_fallback.save_vital_sign(reading.dict())
+            # Salvar no MongoDB
+            for reading in vital_signs:
+                await mongodb_fallback.save_vital_sign(reading.dict())
             
             # Executar análise IA a cada 3 leituras
             if random.random() < 0.3:  # 30% chance de análise
                 readings_data = [reading.dict() for reading in vital_signs]
                 analysis = await analyzer.analyze_vital_signs(readings_data)
                 
-                if USE_FIREBASE:
-                    # Salvar análise no Firestore
-                    db = get_firestore_db()
-                    analysis_ref = db.collection('ai_analyses').document()
-                    analysis_ref.set(analysis.dict())
-                    
-                    # Salvar alertas se houver
-                    if analysis.alerts_generated:
-                        for alert in analysis.alerts_generated:
-                            alert_ref = db.collection('alerts').document()
-                            alert_ref.set(alert.dict())
-                else:
-                    # Salvar no MongoDB
-                    await mongodb_fallback.save_analysis(analysis.dict())
-                    
-                    # Salvar alertas se houver
-                    if analysis.alerts_generated:
-                        for alert in analysis.alerts_generated:
-                            await mongodb_fallback.save_alert(alert.dict())
+                # Salvar no MongoDB
+                await mongodb_fallback.save_analysis(analysis.dict())
+                
+                # Salvar alertas se houver
+                if analysis.alerts_generated:
+                    for alert in analysis.alerts_generated:
+                        await mongodb_fallback.save_alert(alert.dict())
             
             logger.debug(f"Dados simulados salvos: {len(vital_signs)} leituras")
             await asyncio.sleep(3)  # Intervalo de 3 segundos
@@ -222,19 +189,11 @@ async def stop_simulation():
 async def save_vital_sign(vital_sign: Dict[str, Any]):
     """Salvar novo sinal vital"""
     try:
-        # Adicionar timestamp se não existir
         if 'timestamp' not in vital_sign:
             vital_sign['timestamp'] = datetime.utcnow()
         
-        # Salvar usando fallback apropriado
-        if USE_FIREBASE:
-            db = get_firestore_db()
-            doc_ref = db.collection('vital_signs').document()
-            doc_ref.set(vital_sign)
-            return {"message": "Sinal vital salvo", "id": doc_ref.id}
-        else:
-            doc_id = await mongodb_fallback.save_vital_sign(vital_sign)
-            return {"message": "Sinal vital salvo", "id": doc_id}
+        doc_id = await mongodb_fallback.save_vital_sign(vital_sign)
+        return {"message": "Sinal vital salvo", "id": doc_id}
         
     except Exception as e:
         logger.error(f"Erro ao salvar sinal vital: {e}")
@@ -244,26 +203,7 @@ async def save_vital_sign(vital_sign: Dict[str, Any]):
 async def get_vital_signs(limit: int = 50, hours: int = 24):
     """Buscar sinais vitais recentes"""
     try:
-        if USE_FIREBASE:
-            db = get_firestore_db()
-            # Calcular timestamp limite
-            cutoff_time = datetime.utcnow() - timedelta(hours=hours)
-            
-            # Consultar Firestore
-            query = db.collection('vital_signs') \
-                     .where('timestamp', '>=', cutoff_time) \
-                     .order_by('timestamp', direction='DESCENDING') \
-                     .limit(limit)
-            
-            docs = query.stream()
-            vital_signs = []
-            
-            for doc in docs:
-                data = doc.to_dict()
-                data['id'] = doc.id
-                vital_signs.append(data)
-        else:
-            vital_signs = await mongodb_fallback.get_vital_signs(limit, hours)
+        vital_signs = await mongodb_fallback.get_vital_signs(limit, hours)
         
         return {
             "vital_signs": vital_signs,
@@ -279,86 +219,11 @@ async def get_vital_signs(limit: int = 50, hours: int = 24):
 async def get_latest_vital_signs():
     """Buscar últimos sinais vitais por tipo de sensor"""
     try:
-        db = get_firestore_db()
-        
-        # Buscar último registro de cada tipo
-        sensor_types = ["heart_rate", "blood_pressure", "oxygen_saturation", "temperature", "gsr"]
-        latest_readings = {}
-        
-        for sensor_type in sensor_types:
-            query = db.collection('vital_signs') \
-                     .where('sensor_type', '==', sensor_type) \
-                     .order_by('timestamp', direction='DESCENDING') \
-                     .limit(1)
-            
-            docs = list(query.stream())
-            if docs:
-                data = docs[0].to_dict()
-                data['id'] = docs[0].id
-                latest_readings[sensor_type] = data
-        
+        latest_readings = await mongodb_fallback.get_latest_vital_signs()
         return latest_readings
         
     except Exception as e:
         logger.error(f"Erro ao buscar últimos sinais: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@api_router.get("/vital-signs/summary/{period}")
-async def get_vital_signs_summary(period: str):
-    """Resumo estatístico dos sinais vitais"""
-    try:
-        db = get_firestore_db()
-        
-        # Calcular período
-        if period == "daily":
-            hours = 24
-        elif period == "weekly":
-            hours = 24 * 7
-        elif period == "monthly":
-            hours = 24 * 30
-        else:
-            hours = 24
-        
-        cutoff_time = datetime.utcnow() - timedelta(hours=hours)
-        
-        # Buscar dados
-        query = db.collection('vital_signs') \
-                 .where('timestamp', '>=', cutoff_time)
-        
-        docs = query.stream()
-        
-        # Agrupar por tipo de sensor
-        sensor_data = {}
-        for doc in docs:
-            data = doc.to_dict()
-            sensor_type = data.get('sensor_type')
-            value = data.get('value')
-            
-            if sensor_type and value is not None:
-                if sensor_type not in sensor_data:
-                    sensor_data[sensor_type] = []
-                sensor_data[sensor_type].append(value)
-        
-        # Calcular estatísticas
-        summary = {}
-        for sensor_type, values in sensor_data.items():
-            if values:
-                summary[sensor_type] = {
-                    "count": len(values),
-                    "average": round(sum(values) / len(values), 2),
-                    "minimum": min(values),
-                    "maximum": max(values),
-                    "latest": values[-1] if values else None
-                }
-        
-        return {
-            "period": period,
-            "summary": summary,
-            "total_readings": sum(len(values) for values in sensor_data.values())
-        }
-        
-    except Exception as e:
-        logger.error(f"Erro ao gerar resumo: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # === ENDPOINTS DE PERFIL ===
@@ -367,18 +232,10 @@ async def get_vital_signs_summary(period: str):
 async def get_patient_profile():
     """Buscar perfil do paciente"""
     try:
-        db = get_firestore_db()
-        
-        # Buscar perfil único (para feira)
-        query = db.collection('patient_profiles').limit(1)
-        docs = list(query.stream())
-        
-        if docs:
-            data = docs[0].to_dict()
-            data['id'] = docs[0].id
-            return data
+        profile = await mongodb_fallback.get_profile()
+        if profile:
+            return profile
         else:
-            # Retornar perfil padrão se não existir
             default_profile = PatientProfile()
             return default_profile.dict()
             
@@ -390,27 +247,7 @@ async def get_patient_profile():
 async def save_patient_profile(profile_data: Dict[str, Any]):
     """Salvar/atualizar perfil do paciente"""
     try:
-        db = get_firestore_db()
-        
-        # Adicionar timestamp de atualização
-        profile_data['updated_at'] = datetime.utcnow()
-        
-        # Verificar se já existe um perfil
-        query = db.collection('patient_profiles').limit(1)
-        docs = list(query.stream())
-        
-        if docs:
-            # Atualizar perfil existente
-            doc_ref = docs[0].reference
-            doc_ref.update(profile_data)
-            profile_id = docs[0].id
-        else:
-            # Criar novo perfil
-            profile_data['created_at'] = datetime.utcnow()
-            doc_ref = db.collection('patient_profiles').document()
-            doc_ref.set(profile_data)
-            profile_id = doc_ref.id
-        
+        profile_id = await mongodb_fallback.save_profile(profile_data)
         return {"message": "Perfil salvo", "id": profile_id}
         
     except Exception as e:
@@ -423,22 +260,7 @@ async def save_patient_profile(profile_data: Dict[str, Any]):
 async def get_alerts(limit: int = 20, resolved: Optional[bool] = None):
     """Buscar alertas"""
     try:
-        db = get_firestore_db()
-        
-        query = db.collection('alerts') \
-                 .order_by('timestamp', direction='DESCENDING') \
-                 .limit(limit)
-        
-        if resolved is not None:
-            query = query.where('resolved', '==', resolved)
-        
-        docs = query.stream()
-        alerts = []
-        
-        for doc in docs:
-            data = doc.to_dict()
-            data['id'] = doc.id
-            alerts.append(data)
+        alerts = await mongodb_fallback.get_alerts(limit, resolved)
         
         return {
             "alerts": alerts,
@@ -449,71 +271,35 @@ async def get_alerts(limit: int = 20, resolved: Optional[bool] = None):
         logger.error(f"Erro ao buscar alertas: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@api_router.post("/alerts/{alert_id}/resolve")
-async def resolve_alert(alert_id: str):
-    """Marcar alerta como resolvido"""
-    try:
-        db = get_firestore_db()
-        
-        doc_ref = db.collection('alerts').document(alert_id)
-        doc_ref.update({
-            'resolved': True,
-            'resolved_at': datetime.utcnow()
-        })
-        
-        return {"message": "Alerta resolvido"}
-        
-    except Exception as e:
-        logger.error(f"Erro ao resolver alerta: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
 # === ENDPOINTS DE ANÁLISE IA ===
 
 @api_router.post("/analysis/run")
 async def run_ai_analysis():
     """Executar análise IA dos dados recentes"""
     try:
-        db = get_firestore_db()
-        
         # Buscar sinais vitais recentes
-        cutoff_time = datetime.utcnow() - timedelta(minutes=10)
-        query = db.collection('vital_signs') \
-                 .where('timestamp', '>=', cutoff_time) \
-                 .limit(20)
+        vital_signs = await mongodb_fallback.get_vital_signs(20, 1)  # Última hora
         
-        docs = list(query.stream())
-        if not docs:
+        if not vital_signs:
             return {"message": "Nenhum dado recente para análise"}
         
-        # Preparar dados para análise
-        vital_signs_data = []
-        for doc in docs:
-            data = doc.to_dict()
-            vital_signs_data.append(data)
-        
         # Buscar perfil do paciente
-        profile_query = db.collection('patient_profiles').limit(1)
-        profile_docs = list(profile_query.stream())
-        patient_profile = profile_docs[0].to_dict() if profile_docs else None
+        patient_profile = await mongodb_fallback.get_profile()
         
         # Executar análise IA
-        analysis = await analyzer.analyze_vital_signs(vital_signs_data, patient_profile)
+        analysis = await analyzer.analyze_vital_signs(vital_signs, patient_profile)
         
         # Salvar análise
-        analysis_ref = db.collection('ai_analyses').document()
-        analysis_ref.set(analysis.dict())
+        analysis_id = await mongodb_fallback.save_analysis(analysis.dict())
         
         # Salvar alertas gerados
         if analysis.alerts_generated:
-            batch = db.batch()
             for alert in analysis.alerts_generated:
-                alert_ref = db.collection('alerts').document()
-                batch.set(alert_ref, alert.dict())
-            batch.commit()
+                await mongodb_fallback.save_alert(alert.dict())
         
         return {
             "message": "Análise executada",
-            "analysis_id": analysis_ref.id,
+            "analysis_id": analysis_id,
             "health_status": analysis.health_status,
             "alerts_generated": len(analysis.alerts_generated)
         }
@@ -526,17 +312,9 @@ async def run_ai_analysis():
 async def get_latest_analysis():
     """Buscar última análise IA"""
     try:
-        db = get_firestore_db()
-        
-        query = db.collection('ai_analyses') \
-                 .order_by('timestamp', direction='DESCENDING') \
-                 .limit(1)
-        
-        docs = list(query.stream())
-        if docs:
-            data = docs[0].to_dict()
-            data['id'] = docs[0].id
-            return data
+        analysis = await mongodb_fallback.get_latest_analysis()
+        if analysis:
+            return analysis
         else:
             return {"message": "Nenhuma análise encontrada"}
             
@@ -550,9 +328,6 @@ async def get_latest_analysis():
 async def get_report_data(period: str):
     """Buscar dados para relatórios"""
     try:
-        db = get_firestore_db()
-        
-        # Calcular período
         if period == "daily":
             hours = 24
         elif period == "weekly":
@@ -562,37 +337,14 @@ async def get_report_data(period: str):
         else:
             hours = 24
         
-        cutoff_time = datetime.utcnow() - timedelta(hours=hours)
-        
         # Buscar dados do período
-        vital_signs_query = db.collection('vital_signs') \
-                           .where('timestamp', '>=', cutoff_time) \
-                           .order_by('timestamp')
-        
-        alerts_query = db.collection('alerts') \
-                      .where('timestamp', '>=', cutoff_time) \
-                      .order_by('timestamp')
-        
-        vital_signs = []
-        for doc in vital_signs_query.stream():
-            data = doc.to_dict()
-            data['id'] = doc.id
-            vital_signs.append(data)
-        
-        alerts = []
-        for doc in alerts_query.stream():
-            data = doc.to_dict()
-            data['id'] = doc.id
-            alerts.append(data)
-        
-        # Buscar perfil
-        profile_query = db.collection('patient_profiles').limit(1)
-        profile_docs = list(profile_query.stream())
-        patient_profile = profile_docs[0].to_dict() if profile_docs else {}
+        vital_signs = await mongodb_fallback.get_vital_signs(1000, hours)
+        alerts = await mongodb_fallback.get_alerts(100)
+        patient_profile = await mongodb_fallback.get_profile()
         
         return {
             "period": period,
-            "patient_profile": patient_profile,
+            "patient_profile": patient_profile or {},
             "vital_signs": vital_signs,
             "alerts": alerts,
             "generated_at": datetime.utcnow()
@@ -608,31 +360,7 @@ async def get_report_data(period: str):
 async def cleanup_demo_data():
     """Limpar dados de demonstração"""
     try:
-        db = get_firestore_db()
-        
-        collections = ['vital_signs', 'alerts', 'ai_analyses']
-        deleted_count = 0
-        
-        for collection_name in collections:
-            # Deletar documentos em lotes
-            collection_ref = db.collection(collection_name)
-            docs = collection_ref.limit(500).stream()
-            
-            batch = db.batch()
-            batch_count = 0
-            
-            for doc in docs:
-                batch.delete(doc.reference)
-                batch_count += 1
-                deleted_count += 1
-                
-                if batch_count >= 500:
-                    batch.commit()
-                    batch = db.batch()
-                    batch_count = 0
-            
-            if batch_count > 0:
-                batch.commit()
+        deleted_count = await mongodb_fallback.cleanup_demo_data()
         
         return {
             "message": "Dados de demonstração limpos",
@@ -652,17 +380,11 @@ async def startup_event():
     """Inicialização da aplicação"""
     logger.info("VitalTech API iniciando...")
     
-    # Testar conexão Firebase
     try:
-        db = get_firestore_db()
-        test_ref = db.collection('system').document('startup')
-        test_ref.set({
-            'timestamp': datetime.utcnow(),
-            'status': 'started'
-        })
-        logger.info("Firebase conectado com sucesso")
+        await mongodb_fallback.initialize()
+        logger.info("MongoDB conectado com sucesso")
     except Exception as e:
-        logger.error(f"Erro na conexão Firebase: {e}")
+        logger.error(f"Erro na conexão MongoDB: {e}")
     
     # Iniciar simulação automaticamente (para demonstração)
     global simulation_active, simulation_task
