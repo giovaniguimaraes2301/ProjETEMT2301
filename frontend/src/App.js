@@ -387,7 +387,43 @@ function App() {
     });
   };
 
-  // Sistema de toast
+  // Verificar status ESP32
+  const checkESP32Status = useCallback(async () => {
+    try {
+      const response = await axios.get(`${API}/esp32/status`);
+      setEsp32Connected(response.data.connected);
+    } catch (error) {
+      console.error('Erro ao verificar ESP32:', error);
+      setEsp32Connected(false);
+    }
+  }, []);
+
+  // Tela cheia
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().then(() => {
+        setIsFullscreen(true);
+      }).catch(err => {
+        console.error('Erro ao entrar em tela cheia:', err);
+      });
+    } else {
+      document.exitFullscreen().then(() => {
+        setIsFullscreen(false);
+      }).catch(err => {
+        console.error('Erro ao sair da tela cheia:', err);
+      });
+    }
+  };
+
+  // Detectar mudanças de tela cheia
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
   const showToast = (message, type = 'success') => {
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
