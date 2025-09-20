@@ -186,7 +186,99 @@ async def stop_simulation():
     
     return {"message": "Simulação parada"}
 
-# === ENDPOINTS DE SINAIS VITAIS ===
+# === ENDPOINTS PARA ESP32 ===
+
+@api_router.post("/esp32/data")
+async def receive_esp32_data(esp32_data: Dict[str, Any]):
+    """Receber dados do ESP32 via Bluetooth/HTTP bridge"""
+    try:
+        # Mapear dados do ESP32 para formato interno
+        readings = []
+        timestamp = datetime.utcnow()
+        
+        # Extrair dados dos sensores
+        if 'bpm' in esp32_data and esp32_data['bpm'] > 0:
+            reading = HeartRateReading(
+                value=float(esp32_data['bpm']),
+                timestamp=timestamp,
+                device_id="esp32_real"
+            )
+            readings.append(reading)
+            
+        if 'spo2' in esp32_data and esp32_data['spo2'] > 0:
+            reading = OxygenSaturationReading(
+                value=float(esp32_data['spo2']),
+                timestamp=timestamp,
+                device_id="esp32_real"
+            )
+            readings.append(reading)
+            
+        if 'temperature' in esp32_data:
+            reading = TemperatureReading(
+                value=float(esp32_data['temperature']),
+                timestamp=timestamp,
+                device_id="esp32_real"
+            )
+            readings.append(reading)
+            
+        if 'pressure' in esp32_data:
+            reading = BloodPressureReading(
+                value=float(esp32_data['pressure']),
+                timestamp=timestamp,
+                device_id="esp32_real"
+            )
+            readings.append(reading)
+            
+        if 'gsr' in esp32_data:
+            reading = GSRReading(
+                value=float(esp32_data['gsr']),
+                timestamp=timestamp,
+                device_id="esp32_real"
+            )
+            readings.append(reading)
+        
+        # Salvar no MongoDB
+        for reading in readings:
+            await mongodb_fallback.save_vital_sign(reading.dict())
+        
+        logger.info(f"Dados ESP32 salvos: {len(readings)} leituras")
+        
+        return {
+            "message": "Dados ESP32 recebidos com sucesso",
+            "readings_saved": len(readings),
+            "timestamp": timestamp
+        }
+        
+    except Exception as e:
+        logger.error(f"Erro ao processar dados ESP32: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/esp32/status")
+async def get_esp32_status():
+    """Verificar status de conexão ESP32"""
+    try:
+        # Verificar se há dados recentes do dispositivo real
+        recent_readings = await mongodb_fallback.get_vital_signs(10, 1)  # Últimos 10 da última hora
+        
+        esp32_readings = [r for r in recent_readings if r.get('device_id') == 'esp32_real']
+        
+        is_connected = len(esp32_readings) > 0
+        last_reading = esp32_readings[0] if esp32_readings else None
+        
+        return {
+            "connected": is_connected,
+            "last_reading": last_reading,
+            "total_esp32_readings": len(esp32_readings),
+            "checked_at": datetime.utcnow()
+        }
+        
+    except Exception as e:
+        logger.error(f"Erro ao verificar status ESP32: {e}")
+        return {
+            "connected": False,
+            "error": str(e),
+            "checked_at": datetime.utcnow()
+        }
 
 @api_router.post("/vital-signs")
 async def save_vital_sign(vital_sign: Dict[str, Any]):
