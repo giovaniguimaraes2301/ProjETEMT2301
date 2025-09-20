@@ -286,6 +286,51 @@ function App() {
 
   // Preparar dados para gráfico
   const prepareChartData = () => {
+    // Se não há dados, retornar estrutura vazia
+    if (!vitalSigns || vitalSigns.length === 0) {
+      return {
+        labels: [],
+        datasets: [
+          {
+            label: 'Freq. Cardíaca (bpm)',
+            data: [],
+            borderColor: '#3066d3',
+            backgroundColor: 'rgba(48, 102, 211, 0.1)',
+            tension: 0.2,
+          },
+          {
+            label: 'Pressão (mmHg)',
+            data: [],
+            borderColor: '#e67e22',
+            backgroundColor: 'rgba(230, 126, 34, 0.1)',
+            tension: 0.2,
+          },
+          {
+            label: 'Oxigenação (%)',
+            data: [],
+            borderColor: '#27ae60',
+            backgroundColor: 'rgba(39, 174, 96, 0.1)',
+            tension: 0.2,
+          },
+          {
+            label: 'Temperatura (°C)',
+            data: [],
+            borderColor: '#c0392b',
+            backgroundColor: 'rgba(192, 57, 43, 0.1)',
+            tension: 0.2,
+          },
+          {
+            label: 'GSR (Ω)',
+            data: [],
+            borderColor: '#8e44ad',
+            backgroundColor: 'rgba(142, 68, 173, 0.1)',
+            tension: 0.2,
+            yAxisID: 'y1',
+          },
+        ]
+      };
+    }
+
     // Pegar últimas 20 leituras e agrupar por timestamp
     const recentReadings = vitalSigns.slice(0, 20).reverse();
     const groupedByTime = {};
@@ -309,6 +354,7 @@ function App() {
         borderColor: '#3066d3',
         backgroundColor: 'rgba(48, 102, 211, 0.1)',
         tension: 0.2,
+        fill: false,
       },
       {
         label: 'Pressão (mmHg)',
@@ -316,6 +362,7 @@ function App() {
         borderColor: '#e67e22',
         backgroundColor: 'rgba(230, 126, 34, 0.1)',
         tension: 0.2,
+        fill: false,
       },
       {
         label: 'Oxigenação (%)',
@@ -323,6 +370,7 @@ function App() {
         borderColor: '#27ae60',
         backgroundColor: 'rgba(39, 174, 96, 0.1)',
         tension: 0.2,
+        fill: false,
       },
       {
         label: 'Temperatura (°C)',
@@ -330,6 +378,7 @@ function App() {
         borderColor: '#c0392b',
         backgroundColor: 'rgba(192, 57, 43, 0.1)',
         tension: 0.2,
+        fill: false,
       },
       {
         label: 'GSR (Ω)',
@@ -337,6 +386,7 @@ function App() {
         borderColor: '#8e44ad',
         backgroundColor: 'rgba(142, 68, 173, 0.1)',
         tension: 0.2,
+        fill: false,
         yAxisID: 'y1', // Eixo secundário para GSR
       },
     ];
