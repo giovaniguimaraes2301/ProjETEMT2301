@@ -61,20 +61,26 @@ async def root():
 async def health_check():
     """Verificação de saúde da API"""
     try:
-        db = get_firestore_db()
-        # Teste simples de conexão
-        test_ref = db.collection('health_check').document('test')
-        test_ref.set({'timestamp': datetime.utcnow(), 'status': 'ok'})
+        if USE_FIREBASE:
+            db = get_firestore_db()
+            # Teste simples de conexão
+            test_ref = db.collection('health_check').document('test')
+            test_ref.set({'timestamp': datetime.utcnow(), 'status': 'ok'})
+            db_status = "firebase_connected"
+        else:
+            # Usar MongoDB fallback
+            await mongodb_fallback.initialize()
+            db_status = "mongodb_connected"
         
         return {
             "status": "healthy",
             "timestamp": datetime.utcnow(),
-            "firebase": "connected",
+            "database": db_status,
             "simulation": "active" if simulation_active else "inactive"
         }
     except Exception as e:
         logger.error(f"Health check failed: {e}")
-        raise HTTPException(status_code=503, detail="Service unhealthy")
+        raise HTTPException(status_code=503, detail=f"Service unhealthy: {str(e)}")
 
 # === SIMULAÇÃO DE DADOS ===
 
