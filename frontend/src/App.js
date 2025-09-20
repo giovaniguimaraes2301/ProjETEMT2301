@@ -55,6 +55,8 @@ function App() {
   });
   const [loading, setLoading] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [esp32Connected, setEsp32Connected] = useState(false);
 
   // Buscar dados da API
   const fetchLatestReadings = useCallback(async () => {
