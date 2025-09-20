@@ -1,52 +1,773 @@
-import { useEffect } from "react";
-import "./App.css";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import axios from "axios";
+import React, { useState, useEffect, useCallback } from 'react';
+import axios from 'axios';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+} from 'chart.js';
+import { Line } from 'react-chartjs-2';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+import './App.css';
+
+// Registrar componentes do Chart.js
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend
+);
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
-const Home = () => {
-  const helloWorldApi = async () => {
+function App() {
+  // Estados principais
+  const [activeSection, setActiveSection] = useState('Dashboard');
+  const [vitalSigns, setVitalSigns] = useState([]);
+  const [latestReadings, setLatestReadings] = useState({});
+  const [alerts, setAlerts] = useState([]);
+  const [profile, setProfile] = useState({
+    nome: 'Visitante da Feira',
+    idade: '',
+    genero: '',
+    altura: '',
+    peso: '',
+    grupo_sanguineo: '',
+    telefone: '',
+    email: '',
+    endereco: '',
+    cartao_saude: '',
+    condicoes_medicas: '',
+    alergias: '',
+    medicacoes: '',
+    contatos_emergencia: '',
+    informacoes_adicionais: '',
+    foto_url: ''
+  });
+  const [loading, setLoading] = useState(false);
+  const [darkMode, setDarkMode] = useState(false);
+
+  // Buscar dados da API
+  const fetchLatestReadings = useCallback(async () => {
     try {
-      const response = await axios.get(`${API}/`);
-      console.log(response.data.message);
-    } catch (e) {
-      console.error(e, `errored out requesting / api`);
+      const response = await axios.get(`${API}/vital-signs/latest`);
+      setLatestReadings(response.data);
+    } catch (error) {
+      console.error('Erro ao buscar últimas leituras:', error);
+    }
+  }, []);
+
+  const fetchVitalSigns = useCallback(async () => {
+    try {
+      const response = await axios.get(`${API}/vital-signs?limit=50&hours=24`);
+      setVitalSigns(response.data.vital_signs || []);
+    } catch (error) {
+      console.error('Erro ao buscar sinais vitais:', error);
+    }
+  }, []);
+
+  const fetchAlerts = useCallback(async () => {
+    try {
+      const response = await axios.get(`${API}/alerts?limit=20`);
+      setAlerts(response.data.alerts || []);
+    } catch (error) {
+      console.error('Erro ao buscar alertas:', error);
+    }
+  }, []);
+
+  const fetchProfile = useCallback(async () => {
+    try {
+      const response = await axios.get(`${API}/profile`);
+      setProfile(prevProfile => ({ ...prevProfile, ...response.data }));
+    } catch (error) {
+      console.error('Erro ao buscar perfil:', error);
+    }
+  }, []);
+
+  // Salvar perfil
+  const saveProfile = async () => {
+    try {
+      setLoading(true);
+      await axios.post(`${API}/profile`, profile);
+      showToast('Perfil salvo com sucesso!');
+    } catch (error) {
+      console.error('Erro ao salvar perfil:', error);
+      showToast('Erro ao salvar perfil', 'error');
+    } finally {
+      setLoading(false);
     }
   };
 
+  // Executar análise IA
+  const runAIAnalysis = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.post(`${API}/analysis/run`);
+      showToast(`Análise IA executada: ${response.data.health_status}`);
+      await fetchAlerts(); // Atualizar alertas
+    } catch (error) {
+      console.error('Erro na análise IA:', error);
+      showToast('Erro na análise IA', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Gerar relatório PDF
+  const generatePDFReport = async (period = 'daily') => {
+    try {
+      setLoading(true);
+      const response = await axios.get(`${API}/reports/data/${period}`);
+      const data = response.data;
+
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+
+      // Header
+      doc.setFillColor(48, 102, 211);
+      doc.rect(0, 0, pageWidth, 25, 'F');
+      
+      doc.setFontSize(20);
+      doc.setTextColor(255, 255, 255);
+      doc.text('VitalTech - Relatório Médico', 20, 18);
+
+      // Informações do paciente
+      doc.setFontSize(12);
+      doc.setTextColor(0, 0, 0);
+      doc.text(`Paciente: ${data.patient_profile?.nome || 'N/A'}`, 20, 40);
+      doc.text(`Período: ${period}`, 20, 50);
+      doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, 20, 60);
+
+      // Tabela de sinais vitais
+      if (data.vital_signs && data.vital_signs.length > 0) {
+        const tableData = data.vital_signs.slice(0, 20).map(reading => [
+          new Date(reading.timestamp).toLocaleString('pt-BR'),
+          reading.sensor_type,
+          reading.value,
+          reading.unit || ''
+        ]);
+
+        doc.autoTable({
+          startY: 70,
+          head: [['Data/Hora', 'Sensor', 'Valor', 'Unidade']],
+          body: tableData,
+          styles: { fontSize: 8 },
+          headStyles: { fillColor: [48, 102, 211] }
+        });
+      }
+
+      // Alertas
+      if (data.alerts && data.alerts.length > 0) {
+        doc.setFontSize(14);
+        doc.text('Alertas:', 20, doc.lastAutoTable.finalY + 20);
+        
+        data.alerts.slice(0, 10).forEach((alert, index) => {
+          doc.setFontSize(10);
+          doc.text(`• ${alert.title}: ${alert.message}`, 25, doc.lastAutoTable.finalY + 35 + (index * 8));
+        });
+      }
+
+      doc.save(`VitalTech_Relatorio_${period}_${new Date().toISOString().slice(0,10)}.pdf`);
+      showToast('Relatório PDF gerado!');
+    } catch (error) {
+      console.error('Erro ao gerar relatório:', error);
+      showToast('Erro ao gerar relatório', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Exportar CSV
+  const exportCSV = () => {
+    if (vitalSigns.length === 0) {
+      showToast('Nenhum dado para exportar', 'warning');
+      return;
+    }
+
+    const headers = ['Data/Hora', 'Sensor', 'Valor', 'Unidade'];
+    const csvContent = [
+      headers.join(','),
+      ...vitalSigns.map(reading => [
+        new Date(reading.timestamp).toLocaleString('pt-BR'),
+        reading.sensor_type,
+        reading.value,
+        reading.unit || ''
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `vitaltech_dados_${new Date().toISOString().slice(0,10)}.csv`;
+    link.click();
+    showToast('CSV exportado!');
+  };
+
+  // Limpar dados de demonstração
+  const cleanupDemoData = async () => {
+    if (window.confirm('Tem certeza que deseja limpar todos os dados de demonstração?')) {
+      try {
+        setLoading(true);
+        await axios.post(`${API}/data/cleanup`);
+        showToast('Dados limpos com sucesso!');
+        // Atualizar dados
+        await fetchLatestReadings();
+        await fetchVitalSigns();
+        await fetchAlerts();
+      } catch (error) {
+        console.error('Erro ao limpar dados:', error);
+        showToast('Erro ao limpar dados', 'error');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  // Preencher dados de exemplo
+  const fillSampleData = () => {
+    setProfile({
+      ...profile,
+      nome: 'João Silva',
+      idade: '45',
+      genero: 'Masculino',
+      altura: '175',
+      peso: '78',
+      grupo_sanguineo: 'O+',
+      telefone: '(11) 99999-9999',
+      email: 'joao.silva@example.com',
+      endereco: 'Rua Exemplo, 100',
+      condicoes_medicas: 'Hipertensão controlada',
+      alergias: 'Nenhuma conhecida',
+      medicacoes: 'Losartana 50mg',
+      contatos_emergencia: 'Maria Silva - (11) 88888-8888'
+    });
+  };
+
+  // Sistema de toast
+  const showToast = (message, type = 'success') => {
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      setTimeout(() => toast.remove(), 300);
+    }, 3000);
+  };
+
+  // Calcular IMC
+  const calculateIMC = () => {
+    const altura = parseFloat(profile.altura);
+    const peso = parseFloat(profile.peso);
+    if (altura && peso) {
+      const imc = peso / ((altura / 100) ** 2);
+      return imc.toFixed(1);
+    }
+    return '--';
+  };
+
+  const getIMCClassification = (imc) => {
+    const imcNum = parseFloat(imc);
+    if (imcNum < 18.5) return 'Magreza';
+    if (imcNum < 25) return 'Normal';
+    if (imcNum < 30) return 'Sobrepeso';
+    return 'Obesidade';
+  };
+
+  // Preparar dados para gráfico
+  const prepareChartData = () => {
+    // Pegar últimas 20 leituras e agrupar por timestamp
+    const recentReadings = vitalSigns.slice(0, 20).reverse();
+    const groupedByTime = {};
+    
+    recentReadings.forEach(reading => {
+      const time = new Date(reading.timestamp).toLocaleTimeString('pt-BR', { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      });
+      if (!groupedByTime[time]) {
+        groupedByTime[time] = {};
+      }
+      groupedByTime[time][reading.sensor_type] = reading.value;
+    });
+
+    const labels = Object.keys(groupedByTime);
+    const datasets = [
+      {
+        label: 'Freq. Cardíaca (bpm)',
+        data: labels.map(time => groupedByTime[time].heart_rate || null),
+        borderColor: '#3066d3',
+        backgroundColor: 'rgba(48, 102, 211, 0.1)',
+        tension: 0.2,
+      },
+      {
+        label: 'Pressão (mmHg)',
+        data: labels.map(time => groupedByTime[time].blood_pressure || null),
+        borderColor: '#e67e22',
+        backgroundColor: 'rgba(230, 126, 34, 0.1)',
+        tension: 0.2,
+      },
+      {
+        label: 'Oxigenação (%)',
+        data: labels.map(time => groupedByTime[time].oxygen_saturation || null),
+        borderColor: '#27ae60',
+        backgroundColor: 'rgba(39, 174, 96, 0.1)',
+        tension: 0.2,
+      },
+      {
+        label: 'Temperatura (°C)',
+        data: labels.map(time => groupedByTime[time].temperature || null),
+        borderColor: '#c0392b',
+        backgroundColor: 'rgba(192, 57, 43, 0.1)',
+        tension: 0.2,
+      },
+      {
+        label: 'GSR (Ω)',
+        data: labels.map(time => groupedByTime[time].gsr || null),
+        borderColor: '#8e44ad',
+        backgroundColor: 'rgba(142, 68, 173, 0.1)',
+        tension: 0.2,
+        yAxisID: 'y1', // Eixo secundário para GSR
+      },
+    ];
+
+    return { labels, datasets };
+  };
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'top',
+      },
+      title: {
+        display: true,
+        text: 'Sinais Vitais em Tempo Real',
+        font: { size: 16 }
+      },
+    },
+    scales: {
+      y: {
+        type: 'linear',
+        display: true,
+        position: 'left',
+      },
+      y1: {
+        type: 'linear',
+        display: true,
+        position: 'right',
+        grid: {
+          drawOnChartArea: false,
+        },
+      },
+    },
+  };
+
+  // Effects
   useEffect(() => {
-    helloWorldApi();
-  }, []);
+    fetchLatestReadings();
+    fetchVitalSigns();
+    fetchAlerts();
+    fetchProfile();
 
+    // Atualizar dados a cada 5 segundos
+    const interval = setInterval(() => {
+      fetchLatestReadings();
+      fetchVitalSigns();
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [fetchLatestReadings, fetchVitalSigns, fetchAlerts, fetchProfile]);
+
+  // Render
   return (
-    <div>
-      <header className="App-header">
-        <a
-          className="App-link"
-          href="https://emergent.sh"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img src="https://avatars.githubusercontent.com/in/1201222?s=120&u=2686cf91179bbafbc7a71bfbc43004cf9ae1acea&v=4" />
-        </a>
-        <p className="mt-5">Building something incredible ~!</p>
+    <div className={`App ${darkMode ? 'dark-mode' : ''}`}>
+      {/* Header */}
+      <header className="site-header">
+        <div className="brand">
+          <div className="logo-box">VT</div>
+          <div>
+            <div className="site-title">VitalTech</div>
+            <div className="site-subtitle">Sistema de monitoramento de sinais vitais</div>
+          </div>
+        </div>
+
+        <div className="header-actions">
+          <button 
+            className="btn ghost" 
+            onClick={() => setDarkMode(!darkMode)}
+          >
+            {darkMode ? 'Modo Claro' : 'Modo Escuro'}
+          </button>
+          <button className="btn" onClick={cleanupDemoData}>
+            Limpar Dados
+          </button>
+        </div>
       </header>
-    </div>
-  );
-};
 
-function App() {
-  return (
-    <div className="App">
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Home />}>
-            <Route index element={<Home />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
+      {/* Main Content */}
+      <main>
+        {/* Sidebar */}
+        <nav className="sidebar">
+          <h2><i className="fas fa-heartbeat"></i> VitalTech</h2>
+          {['Dashboard', 'Dados de Saúde', 'Alertas', 'Relatórios', 'Configurações'].map(section => (
+            <button 
+              key={section}
+              onClick={() => setActiveSection(section)}
+              className={activeSection === section ? 'active' : ''}
+            >
+              <i className={`fas fa-${
+                section === 'Dashboard' ? 'chart-line' :
+                section === 'Dados de Saúde' ? 'user' :
+                section === 'Alertas' ? 'exclamation-triangle' :
+                section === 'Relatórios' ? 'file-pdf' : 'cog'
+              }`}></i>
+              {section}
+            </button>
+          ))}
+        </nav>
+
+        {/* Content Area */}
+        <section className="content">
+          <div className="content-header">
+            <h2>{activeSection}</h2>
+            <div className="content-actions">
+              {activeSection === 'Dashboard' && (
+                <>
+                  <button className="btn" onClick={runAIAnalysis} disabled={loading}>
+                    <i className="fas fa-brain"></i> Análise IA
+                  </button>
+                  <button className="btn" onClick={() => generatePDFReport('daily')}>
+                    <i className="fas fa-file-pdf"></i> Relatório
+                  </button>
+                  <button className="btn ghost" onClick={exportCSV}>
+                    <i className="fas fa-file-csv"></i> Exportar CSV
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="cards">
+            {/* Dashboard */}
+            {activeSection === 'Dashboard' && (
+              <div className="card dashboard-card">
+                <h3>Medidas em tempo real</h3>
+                
+                {/* Chart */}
+                <div className="chart-container">
+                  <Line data={prepareChartData()} options={chartOptions} />
+                </div>
+
+                {/* Current Values */}
+                <div className="vital-signs-grid">
+                  <div className="vital-sign-item">
+                    <div className="vital-sign-label">Freq. Cardíaca</div>
+                    <div className="vital-sign-value">
+                      {latestReadings.heart_rate?.value || '--'} bpm
+                    </div>
+                  </div>
+                  <div className="vital-sign-item">
+                    <div className="vital-sign-label">Pressão</div>
+                    <div className="vital-sign-value">
+                      {latestReadings.blood_pressure?.value || '--'} mmHg
+                    </div>
+                  </div>
+                  <div className="vital-sign-item">
+                    <div className="vital-sign-label">Oxigenação</div>
+                    <div className="vital-sign-value">
+                      {latestReadings.oxygen_saturation?.value || '--'} %
+                    </div>
+                  </div>
+                  <div className="vital-sign-item">
+                    <div className="vital-sign-label">Temperatura</div>
+                    <div className="vital-sign-value">
+                      {latestReadings.temperature?.value || '--'} °C
+                    </div>
+                  </div>
+                  <div className="vital-sign-item">
+                    <div className="vital-sign-label">Resistência Galvânica</div>
+                    <div className="vital-sign-value">
+                      {latestReadings.gsr?.value || '--'} Ω
+                    </div>
+                  </div>
+                </div>
+
+                {/* History Table */}
+                <h4>Histórico (últimos 20 registros)</h4>
+                <div className="table-container">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Hora</th>
+                        <th>Sensor</th>
+                        <th>Valor</th>
+                        <th>Unidade</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {vitalSigns.slice(0, 20).map((reading, index) => (
+                        <tr key={index}>
+                          <td>{new Date(reading.timestamp).toLocaleTimeString('pt-BR')}</td>
+                          <td>{reading.sensor_type}</td>
+                          <td>{reading.value}</td>
+                          <td>{reading.unit}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Dados de Saúde */}
+            {activeSection === 'Dados de Saúde' && (
+              <div className="card">
+                <h3>Dados de Saúde</h3>
+                <div className="profile-display">
+                  <div className="patient-info">
+                    <h4>Informações do Paciente</h4>
+                    <div className="info-grid">
+                      <div><strong>Nome:</strong> {profile.nome}</div>
+                      <div><strong>Idade:</strong> {profile.idade || '--'} anos</div>
+                      <div><strong>Sexo:</strong> {profile.genero || '--'}</div>
+                      <div><strong>Altura:</strong> {profile.altura || '--'} cm</div>
+                      <div><strong>Peso:</strong> {profile.peso || '--'} kg</div>
+                      <div><strong>IMC:</strong> {calculateIMC()} ({getIMCClassification(calculateIMC())})</div>
+                      <div><strong>Grupo Sanguíneo:</strong> {profile.grupo_sanguineo || '--'}</div>
+                      <div><strong>Contato Emergência:</strong> {profile.contatos_emergencia || '--'}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Alertas */}
+            {activeSection === 'Alertas' && (
+              <div className="card">
+                <h3>Alertas (IA)</h3>
+                <div className="alerts-container">
+                  {alerts.length === 0 ? (
+                    <div className="no-alerts">Nenhum alerta registrado</div>
+                  ) : (
+                    alerts.map((alert, index) => (
+                      <div key={index} className={`alert-item alert-${alert.level}`}>
+                        <div className="alert-header">
+                          <strong>{alert.title}</strong>
+                        </div>
+                        <div className="alert-message">{alert.message}</div>
+                        <div className="alert-time">
+                          {new Date(alert.timestamp).toLocaleString('pt-BR')}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Relatórios */}
+            {activeSection === 'Relatórios' && (
+              <div className="card">
+                <h3>Relatórios</h3>
+                <div className="reports-section">
+                  <p>Selecione o período para gerar o relatório:</p>
+                  <div className="report-buttons">
+                    <button 
+                      className="btn" 
+                      onClick={() => generatePDFReport('daily')}
+                      disabled={loading}
+                    >
+                      Relatório Diário
+                    </button>
+                    <button 
+                      className="btn" 
+                      onClick={() => generatePDFReport('weekly')}
+                      disabled={loading}
+                    >
+                      Relatório Semanal
+                    </button>
+                    <button 
+                      className="btn" 
+                      onClick={() => generatePDFReport('monthly')}
+                      disabled={loading}
+                    >
+                      Relatório Mensal
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Configurações */}
+            {activeSection === 'Configurações' && (
+              <div className="card">
+                <h3>Configurações / Perfil</h3>
+                <div className="profile-form">
+                  <div className="form-grid">
+                    <div className="form-group">
+                      <label>Nome completo</label>
+                      <input
+                        type="text"
+                        value={profile.nome}
+                        onChange={(e) => setProfile({...profile, nome: e.target.value})}
+                        placeholder="Nome completo"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Idade</label>
+                      <input
+                        type="number"
+                        value={profile.idade}
+                        onChange={(e) => setProfile({...profile, idade: e.target.value})}
+                        placeholder="Idade"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Sexo</label>
+                      <input
+                        type="text"
+                        value={profile.genero}
+                        onChange={(e) => setProfile({...profile, genero: e.target.value})}
+                        placeholder="Sexo"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Altura (cm)</label>
+                      <input
+                        type="number"
+                        value={profile.altura}
+                        onChange={(e) => setProfile({...profile, altura: e.target.value})}
+                        placeholder="Altura em cm"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Peso (kg)</label>
+                      <input
+                        type="number"
+                        value={profile.peso}
+                        onChange={(e) => setProfile({...profile, peso: e.target.value})}
+                        placeholder="Peso em kg"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Grupo Sanguíneo</label>
+                      <input
+                        type="text"
+                        value={profile.grupo_sanguineo}
+                        onChange={(e) => setProfile({...profile, grupo_sanguineo: e.target.value})}
+                        placeholder="Ex: O+, A-, B+..."
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Telefone</label>
+                      <input
+                        type="text"
+                        value={profile.telefone}
+                        onChange={(e) => setProfile({...profile, telefone: e.target.value})}
+                        placeholder="Telefone"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Email</label>
+                      <input
+                        type="email"
+                        value={profile.email}
+                        onChange={(e) => setProfile({...profile, email: e.target.value})}
+                        placeholder="Email"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-group full-width">
+                    <label>Endereço</label>
+                    <input
+                      type="text"
+                      value={profile.endereco}
+                      onChange={(e) => setProfile({...profile, endereco: e.target.value})}
+                      placeholder="Endereço completo"
+                    />
+                  </div>
+
+                  <div className="form-group full-width">
+                    <label>Condições Médicas</label>
+                    <textarea
+                      value={profile.condicoes_medicas}
+                      onChange={(e) => setProfile({...profile, condicoes_medicas: e.target.value})}
+                      placeholder="Condições médicas existentes"
+                      rows="3"
+                    />
+                  </div>
+
+                  <div className="form-group full-width">
+                    <label>Alergias</label>
+                    <textarea
+                      value={profile.alergias}
+                      onChange={(e) => setProfile({...profile, alergias: e.target.value})}
+                      placeholder="Alergias conhecidas"
+                      rows="2"
+                    />
+                  </div>
+
+                  <div className="form-group full-width">
+                    <label>Medicações</label>
+                    <textarea
+                      value={profile.medicacoes}
+                      onChange={(e) => setProfile({...profile, medicacoes: e.target.value})}
+                      placeholder="Medicações em uso"
+                      rows="2"
+                    />
+                  </div>
+
+                  <div className="form-group full-width">
+                    <label>Contatos de Emergência</label>
+                    <textarea
+                      value={profile.contatos_emergencia}
+                      onChange={(e) => setProfile({...profile, contatos_emergencia: e.target.value})}
+                      placeholder="Contatos de emergência"
+                      rows="2"
+                    />
+                  </div>
+
+                  <div className="form-actions">
+                    <button 
+                      className="btn" 
+                      onClick={saveProfile}
+                      disabled={loading}
+                    >
+                      {loading ? 'Salvando...' : 'Salvar Perfil'}
+                    </button>
+                    <button 
+                      className="btn ghost" 
+                      onClick={fillSampleData}
+                    >
+                      Preencher Exemplo
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+      </main>
+
+      {/* Loading Overlay */}
+      {loading && (
+        <div className="loading-overlay">
+          <div className="loading-spinner"></div>
+        </div>
+      )}
     </div>
   );
 }
