@@ -578,28 +578,63 @@ function App() {
     plugins: {
       legend: {
         position: 'top',
+        labels: {
+          usePointStyle: true,
+          padding: 15
+        }
       },
       title: {
         display: true,
         text: 'Sinais Vitais em Tempo Real',
-        font: { size: 16 }
+        font: { size: 16, weight: 'bold' }
       },
     },
     scales: {
+      x: {
+        display: true,
+        title: {
+          display: true,
+          text: 'Horário'
+        }
+      },
       y: {
         type: 'linear',
         display: true,
         position: 'left',
+        title: {
+          display: true,
+          text: 'Valores (FC, PA, SpO2, Temp)'
+        },
+        min: 0,
+        max: 180
       },
       y1: {
         type: 'linear',
         display: true,
         position: 'right',
+        title: {
+          display: true,
+          text: 'GSR (Ω)'
+        },
+        min: 0,
+        max: 1000,
         grid: {
           drawOnChartArea: false,
         },
       },
     },
+    elements: {
+      point: {
+        radius: 4,
+        hoverRadius: 8
+      },
+      line: {
+        borderWidth: 3
+      }
+    },
+    animation: {
+      duration: 1000
+    }
   };
 
   // Effects
