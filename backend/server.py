@@ -244,24 +244,26 @@ async def save_vital_sign(vital_sign: Dict[str, Any]):
 async def get_vital_signs(limit: int = 50, hours: int = 24):
     """Buscar sinais vitais recentes"""
     try:
-        db = get_firestore_db()
-        
-        # Calcular timestamp limite
-        cutoff_time = datetime.utcnow() - timedelta(hours=hours)
-        
-        # Consultar Firestore
-        query = db.collection('vital_signs') \
-                 .where('timestamp', '>=', cutoff_time) \
-                 .order_by('timestamp', direction='DESCENDING') \
-                 .limit(limit)
-        
-        docs = query.stream()
-        vital_signs = []
-        
-        for doc in docs:
-            data = doc.to_dict()
-            data['id'] = doc.id
-            vital_signs.append(data)
+        if USE_FIREBASE:
+            db = get_firestore_db()
+            # Calcular timestamp limite
+            cutoff_time = datetime.utcnow() - timedelta(hours=hours)
+            
+            # Consultar Firestore
+            query = db.collection('vital_signs') \
+                     .where('timestamp', '>=', cutoff_time) \
+                     .order_by('timestamp', direction='DESCENDING') \
+                     .limit(limit)
+            
+            docs = query.stream()
+            vital_signs = []
+            
+            for doc in docs:
+                data = doc.to_dict()
+                data['id'] = doc.id
+                vital_signs.append(data)
+        else:
+            vital_signs = await mongodb_fallback.get_vital_signs(limit, hours)
         
         return {
             "vital_signs": vital_signs,
