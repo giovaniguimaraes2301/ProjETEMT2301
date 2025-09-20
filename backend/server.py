@@ -222,17 +222,19 @@ async def stop_simulation():
 async def save_vital_sign(vital_sign: Dict[str, Any]):
     """Salvar novo sinal vital"""
     try:
-        db = get_firestore_db()
-        
         # Adicionar timestamp se não existir
         if 'timestamp' not in vital_sign:
             vital_sign['timestamp'] = datetime.utcnow()
         
-        # Salvar no Firestore
-        doc_ref = db.collection('vital_signs').document()
-        doc_ref.set(vital_sign)
-        
-        return {"message": "Sinal vital salvo", "id": doc_ref.id}
+        # Salvar usando fallback apropriado
+        if USE_FIREBASE:
+            db = get_firestore_db()
+            doc_ref = db.collection('vital_signs').document()
+            doc_ref.set(vital_sign)
+            return {"message": "Sinal vital salvo", "id": doc_ref.id}
+        else:
+            doc_id = await mongodb_fallback.save_vital_sign(vital_sign)
+            return {"message": "Sinal vital salvo", "id": doc_id}
         
     except Exception as e:
         logger.error(f"Erro ao salvar sinal vital: {e}")
