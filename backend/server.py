@@ -23,14 +23,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Configurar Firebase com fallback para MongoDB
-try:
-    from firebase_config import get_firestore_db
-    USE_FIREBASE = True
-    logger.info("Firebase configurado com sucesso")
-except Exception as e:
-    logger.warning(f"Firebase não disponível, usando MongoDB: {e}")
-    USE_FIREBASE = False
-
+USE_FIREBASE = False  # Desabilitar Firebase temporariamente
+logger.info("Usando MongoDB como banco de dados principal")
 from mongodb_fallback import mongodb_fallback
 
 # Criar app FastAPI
