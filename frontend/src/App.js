@@ -1256,13 +1256,14 @@ if __name__ == "__main__":
                     </div>
 
                     <div className="help">
-                      <h4>❓ Problemas comuns</h4>
+                      <h4>❓ Problemas comuns no Windows</h4>
                       <ul>
-                        <li>🔍 <strong>ESP32 não aparece:</strong> Verifique se está ligado e com o código carregado</li>
-                        <li>📱 <strong>Não conecta via Bluetooth:</strong> Ative o Bluetooth no dispositivo</li>
-                        <li>📊 <strong>Dados não aparecem:</strong> Verifique se o bridge está rodando</li>
-                        <li>🔋 <strong>ESP32 desliga:</strong> Verifique alimentação (USB ou 5V estável)</li>
-                        <li>📡 <strong>Conexão instável:</strong> Mantenha dispositivos próximos (máximo 10m)</li>
+                        <li>🔍 <strong>ESP32 não aparece:</strong> Verifique se está ligado e o Bluetooth do Windows ativo</li>
+                        <li>📦 <strong>Erro "bleak not found":</strong> Execute <code>pip install bleak requests</code></li>
+                        <li>🐍 <strong>Python não reconhecido:</strong> Instale Python e marque "Add to PATH"</li>
+                        <li>📡 <strong>Conexão falha:</strong> Mantenha ESP32 próximo ao computador (máximo 5m)</li>
+                        <li>🔋 <strong>ESP32 desconecta:</strong> Verifique alimentação USB estável</li>
+                        <li>🚫 <strong>Permissão negada:</strong> Execute CMD como Administrador</li>
                       </ul>
                     </div>
 
