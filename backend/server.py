@@ -109,7 +109,7 @@ async def health_check():
         await mongodb_fallback.initialize()
         return {
             "status": "healthy",
-            "timestamp": datetime.utcnow(),
+            "timestamp": get_brazil_time(),
             "database": "mongodb_connected",
             "simulation": "active" if simulation_active else "inactive"
         }
