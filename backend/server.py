@@ -246,7 +246,7 @@ async def receive_esp32_data(esp32_data: Dict[str, Any]):
     try:
         # Mapear dados do ESP32 para formato interno
         readings = []
-        timestamp = datetime.utcnow()
+        timestamp = get_brazil_time()
         
         # Extrair dados dos sensores
         if 'bpm' in esp32_data and esp32_data['bpm'] > 0:
