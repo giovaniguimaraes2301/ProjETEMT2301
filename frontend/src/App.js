@@ -973,18 +973,29 @@ function App() {
                     <p>📱 <strong>Seu ESP32 já está programado corretamente!</strong></p>
                     
                     <div className="instructions">
-                      <h4>📋 Passo a passo:</h4>
+                      <h4>📋 Passo a passo no Windows:</h4>
                       <ol>
                         <li>🔌 <strong>Ligue seu ESP32</strong> - conecte via USB ou fonte 5V</li>
-                        <li>📱 <strong>Baixe um app Bluetooth</strong> no seu celular:
+                        <li>💻 <strong>Ative o Bluetooth no Windows:</strong>
                           <ul>
-                            <li>Android: "BLE Scanner" ou "nRF Connect"</li>
-                            <li>iPhone: "BLE Scanner" ou "LightBlue"</li>
+                            <li>Configurações → Dispositivos → Bluetooth</li>
+                            <li>Ative o Bluetooth se não estiver ligado</li>
                           </ul>
                         </li>
-                        <li>🔍 <strong>Procure o dispositivo</strong> chamado <code>"ESP32_S3_Health"</code></li>
-                        <li>🔗 <strong>Conecte</strong> no dispositivo</li>
-                        <li>📊 <strong>Os dados já aparecerão aqui</strong> automaticamente!</li>
+                        <li>📥 <strong>Baixe nosso Bridge Python:</strong>
+                          <ul>
+                            <li>Instale Python se não tiver: <a href="https://python.org" target="_blank">python.org</a></li>
+                            <li>Abra Prompt de Comando (cmd)</li>
+                            <li>Execute: <code>pip install bleak requests</code></li>
+                          </ul>
+                        </li>
+                        <li>🔗 <strong>Execute o Bridge:</strong>
+                          <ul>
+                            <li>Baixe o arquivo: <code>ble_bridge_esp32.py</code></li>
+                            <li>Execute: <code>python ble_bridge_esp32.py</code></li>
+                          </ul>
+                        </li>
+                        <li>📊 <strong>Veja os dados aqui!</strong> Os dados aparecerão automaticamente no Dashboard</li>
                       </ol>
                     </div>
 
