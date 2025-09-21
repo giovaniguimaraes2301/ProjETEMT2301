@@ -398,10 +398,13 @@ function App() {
   const checkESP32Status = useCallback(async () => {
     try {
       const response = await axios.get(`${API}/esp32/status`);
-      setEsp32Connected(response.data.connected);
+      setEsp32Status({
+        connected: response.data.connected,
+        lastReading: response.data.last_reading
+      });
     } catch (error) {
       console.error('Erro ao verificar ESP32:', error);
-      setEsp32Connected(false);
+      setEsp32Status({ connected: false, lastReading: null });
     }
   }, []);
 
