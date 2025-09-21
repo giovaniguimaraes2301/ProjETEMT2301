@@ -180,9 +180,8 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Fix server.py execution issue"
-    - "Local environment configuration"
     - "Frontend dependency installation"
+    - "Local backend URL configuration"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
