@@ -121,7 +121,7 @@ async def health_check():
 
 async def generate_realistic_vital_signs():
     """Gerar sinais vitais realistas para demonstração"""
-    now = datetime.utcnow()
+    now = get_brazil_time()
     
     # Valores base com variações realistas
     base_values = {
