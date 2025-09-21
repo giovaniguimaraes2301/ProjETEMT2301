@@ -973,30 +973,53 @@ function App() {
                     <p>📱 <strong>Seu ESP32 já está programado corretamente!</strong></p>
                     
                     <div className="instructions">
-                      <h4>📋 Passo a passo no Windows:</h4>
+                      <h4>📋 Passo a passo com BLE Scanner (Microsoft Store):</h4>
                       <ol>
                         <li>🔌 <strong>Ligue seu ESP32</strong> - conecte via USB ou fonte 5V</li>
-                        <li>💻 <strong>Ative o Bluetooth no Windows:</strong>
+                        <li>🔍 <strong>Abra o BLE Scanner</strong> do Windows</li>
+                        <li>📡 <strong>Procure "ESP32_S3_Health"</strong> na lista de dispositivos</li>
+                        <li>🔗 <strong>Conecte</strong> no dispositivo (clique nele)</li>
+                        <li>📊 <strong>Veja os dados BLE:</strong>
                           <ul>
-                            <li>Configurações → Dispositivos → Bluetooth</li>
-                            <li>Ative o Bluetooth se não estiver ligado</li>
+                            <li>Procure o Service: <code>49535343-FE7D-4AE5-8FA9-9FAFD205E455</code></li>
+                            <li>Dentro dele, você verá as características:</li>
+                            <li>❤️ BPM: <code>6E400002-B5A3-F393-E0A9-E50E24DCCA9E</code></li>
+                            <li>🫁 SpO2: <code>6E400003-B5A3-F393-E0A9-E50E24DCCA9E</code></li>
+                            <li>🌡️ Temperatura: <code>6E400004-B5A3-F393-E0A9-E50E24DCCA9E</code></li>
+                            <li>📏 Pressão: <code>6E400005-B5A3-F393-E0A9-E50E24DCCA9E</code></li>
+                            <li>🖐️ GSR: <code>6E400006-B5A3-F393-E0A9-E50E24DCCA9E</code></li>
                           </ul>
                         </li>
-                        <li>📥 <strong>Baixe nosso Bridge Python:</strong>
-                          <ul>
-                            <li>Instale Python se não tiver: <a href="https://python.org" target="_blank">python.org</a></li>
-                            <li>Abra Prompt de Comando (cmd)</li>
-                            <li>Execute: <code>pip install bleak requests</code></li>
-                          </ul>
-                        </li>
-                        <li>🔗 <strong>Execute o Bridge:</strong>
-                          <ul>
-                            <li>Baixe o arquivo: <code>ble_bridge_esp32.py</code></li>
-                            <li>Execute: <code>python ble_bridge_esp32.py</code></li>
-                          </ul>
-                        </li>
-                        <li>📊 <strong>Veja os dados aqui!</strong> Os dados aparecerão automaticamente no Dashboard</li>
+                        <li>📈 <strong>Ative as notificações</strong> clicando em cada característica</li>
+                        <li>✅ <strong>Confirme que os dados estão chegando</strong> no BLE Scanner</li>
                       </ol>
+                    </div>
+
+                    <div className="ble-test-section">
+                      <h4>🧪 Teste com BLE Scanner</h4>
+                      <p><strong>O BLE Scanner é perfeito para verificar se seu ESP32 está funcionando!</strong></p>
+                      
+                      <div className="test-steps">
+                        <div className="step">
+                          <h5>✅ Passo 1: Verificar Conexão</h5>
+                          <p>Se você vê "ESP32_S3_Health" no BLE Scanner, seu ESP32 está transmitindo corretamente!</p>
+                        </div>
+                        
+                        <div className="step">
+                          <h5>✅ Passo 2: Ver Dados dos Sensores</h5>
+                          <p>Conecte no ESP32 e veja os valores dos sensores chegando em tempo real.</p>
+                        </div>
+                        
+                        <div className="step">
+                          <h5>✅ Passo 3: Para enviar ao Site</h5>
+                          <p>O BLE Scanner só mostra os dados. Para enviar ao site, você ainda precisa do bridge Python:</p>
+                          <ul>
+                            <li>Execute: <code>pip install bleak requests</code></li>
+                            <li>Execute: <code>python ble_bridge_esp32.py</code></li>
+                            <li>O bridge conectará automaticamente e enviará os dados para cá!</li>
+                          </ul>
+                        </div>
+                      </div>
                     </div>
 
                     <div className="ble-info">
