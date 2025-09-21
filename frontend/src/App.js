@@ -953,13 +953,13 @@ function App() {
             {/* ESP32 Configuration */}
             {activeSection === 'ESP32' && (
               <div className="card">
-                <h3>Configuração ESP32</h3>
+                <h3>Configuração ESP32 via Bluetooth</h3>
                 <div className="esp32-config">
                   <div className="status-section">
                     <h4>Status da Conexão</h4>
                     <div className={`status-indicator ${esp32Status.connected ? 'connected' : 'disconnected'}`}>
-                      <i className={`fas fa-${esp32Status.connected ? 'wifi' : 'wifi-slash'}`}></i>
-                      <span>{esp32Status.connected ? 'ESP32 Conectado' : 'ESP32 Desconectado'}</span>
+                      <i className={`fas fa-${esp32Status.connected ? 'bluetooth' : 'bluetooth-slash'}`}></i>
+                      <span>{esp32Status.connected ? 'ESP32 Conectado via Bluetooth' : 'ESP32 Desconectado'}</span>
                     </div>
                     {esp32Status.lastReading && (
                       <div className="last-reading">
@@ -969,113 +969,189 @@ function App() {
                   </div>
 
                   <div className="config-section">
-                    <h4>Código para seu ESP32</h4>
-                    <p>📋 <strong>Copie este código e cole no Arduino IDE:</strong></p>
+                    <h4>🔗 Como conectar seu ESP32</h4>
+                    <p>📱 <strong>Seu ESP32 já está programado corretamente!</strong></p>
                     
-                    <div className="code-block">
-                      <pre>{`#include <WiFi.h>
-#include <HTTPClient.h>
-#include <ArduinoJson.h>
-
-// ⚡️ CONFIGURE SEU WIFI AQUI:
-const char* ssid = "${esp32Config.wifiSSID || 'SEU_WIFI_AQUI'}";
-const char* password = "${esp32Config.wifiPassword || 'SUA_SENHA_AQUI'}";
-
-// 🌐 URL da API (NÃO MEXER):
-const char* apiURL = "${esp32Config.apiURL}";
-
-void setup() {
-  Serial.begin(115200);
-  
-  // Conectar WiFi
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(1000);
-    Serial.println("Conectando WiFi...");
-  }
-  Serial.println("✅ WiFi conectado!");
-  Serial.println(WiFi.localIP());
-}
-
-void loop() {
-  // 📊 Leia seus sensores aqui
-  float bpm = 75.0;        // Substitua pela leitura real
-  float spo2 = 98.0;       // Substitua pela leitura real  
-  float temp = 36.5;       // Substitua pela leitura real
-  float pressure = 120.0;  // Substitua pela leitura real
-  float gsr = 400.0;       // Substitua pela leitura real
-  
-  // 📤 Enviar dados
-  enviarDados(bpm, spo2, temp, pressure, gsr);
-  delay(3000); // Enviar a cada 3 segundos
-}
-
-void enviarDados(float bpm, float spo2, float temp, float pressure, float gsr) {
-  HTTPClient http;
-  http.begin(apiURL);
-  http.addHeader("Content-Type", "application/json");
-  
-  String json = "{";
-  json += "\\"bpm\\":" + String(bpm) + ",";
-  json += "\\"spo2\\":" + String(spo2) + ",";
-  json += "\\"temperature\\":" + String(temp) + ",";
-  json += "\\"pressure\\":" + String(pressure) + ",";
-  json += "\\"gsr\\":" + String(gsr);
-  json += "}";
-  
-  int responseCode = http.POST(json);
-  if (responseCode == 200) {
-    Serial.println("✅ Dados enviados!");
-  } else {
-    Serial.println("❌ Erro: " + String(responseCode));
-  }
-  http.end();
-}`}</pre>
-                    </div>
-
-                    <div className="config-form">
-                      <h4>⚙️ Configurar WiFi</h4>
-                      <div className="form-group">
-                        <label>Nome da Rede WiFi (SSID):</label>
-                        <input
-                          type="text"
-                          value={esp32Config.wifiSSID}
-                          onChange={(e) => setEsp32Config({...esp32Config, wifiSSID: e.target.value})}
-                          placeholder="Ex: MinhaCasa_WiFi"
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label>Senha do WiFi:</label>
-                        <input
-                          type="password"
-                          value={esp32Config.wifiPassword}
-                          onChange={(e) => setEsp32Config({...esp32Config, wifiPassword: e.target.value})}
-                          placeholder="Ex: minhasenha123"
-                        />
-                      </div>
-                    </div>
-
                     <div className="instructions">
-                      <h4>📋 Como usar:</h4>
+                      <h4>📋 Passo a passo:</h4>
                       <ol>
-                        <li>✏️ <strong>Preencha o WiFi</strong> acima</li>
-                        <li>📋 <strong>Copie o código</strong> que apareceu</li>
-                        <li>💾 <strong>Cole no Arduino IDE</strong></li>
-                        <li>🔧 <strong>Conecte seus sensores</strong> ao ESP32</li>
-                        <li>⚡️ <strong>Faça upload</strong> para o ESP32</li>
-                        <li>🔌 <strong>Ligue o ESP32</strong> - ele conectará automaticamente!</li>
-                        <li>📱 <strong>Volte aqui</strong> para ver os dados em tempo real</li>
+                        <li>🔌 <strong>Ligue seu ESP32</strong> - conecte via USB ou fonte 5V</li>
+                        <li>📱 <strong>Baixe um app Bluetooth</strong> no seu celular:
+                          <ul>
+                            <li>Android: "BLE Scanner" ou "nRF Connect"</li>
+                            <li>iPhone: "BLE Scanner" ou "LightBlue"</li>
+                          </ul>
+                        </li>
+                        <li>🔍 <strong>Procure o dispositivo</strong> chamado <code>"ESP32_S3_Health"</code></li>
+                        <li>🔗 <strong>Conecte</strong> no dispositivo</li>
+                        <li>📊 <strong>Os dados já aparecerão aqui</strong> automaticamente!</li>
                       </ol>
                     </div>
 
+                    <div className="ble-info">
+                      <h4>📡 Informações Técnicas</h4>
+                      <div className="info-grid">
+                        <div>
+                          <strong>Nome do Dispositivo:</strong><br />
+                          <code>ESP32_S3_Health</code>
+                        </div>
+                        <div>
+                          <strong>Service UUID:</strong><br />
+                          <code>49535343-FE7D-4AE5-8FA9-9FAFD205E455</code>
+                        </div>
+                        <div>
+                          <strong>Sensores Detectados:</strong><br />
+                          ❤️ BPM, 🫁 SpO2, 🌡️ Temperatura<br />
+                          📏 Pressão, 🖐️ GSR, 📐 Acelerômetro
+                        </div>
+                        <div>
+                          <strong>Frequência:</strong><br />
+                          Dados em tempo real via BLE
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bridge-section">
+                      <h4>🌉 Bridge Bluetooth ➜ Web</h4>
+                      <p>Para conectar automaticamente, você pode usar nosso bridge:</p>
+                      
+                      <div className="bridge-options">
+                        <div className="option">
+                          <h5>📱 Opção 1: Aplicativo Mobile (Recomendado)</h5>
+                          <p>Use um app BLE Scanner para conectar e os dados aparecerão aqui automaticamente.</p>
+                        </div>
+                        
+                        <div className="option">
+                          <h5>💻 Opção 2: Bridge Python (Avançado)</h5>
+                          <p>Para desenvolvedores: use nosso script Python que conecta via Bluetooth e envia para o site.</p>
+                          <details>
+                            <summary>Ver código do bridge</summary>
+                            <div className="code-block">
+                              <pre>{`# Bridge Bluetooth -> Web
+# Salve como: ble_bridge.py
+
+import asyncio
+import requests
+from bleak import BleakClient
+import json
+
+# Configurações
+ESP32_NAME = "ESP32_S3_Health"
+API_URL = "${esp32Config.apiURL}"
+
+# UUIDs das características
+CHAR_BPM = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
+CHAR_SPO2 = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
+CHAR_TEMP = "6E400004-B5A3-F393-E0A9-E50E24DCCA9E"
+CHAR_PRESS = "6E400005-B5A3-F393-E0A9-E50E24DCCA9E"
+CHAR_GSR = "6E400006-B5A3-F393-E0A9-E50E24DCCA9E"
+
+sensor_data = {}
+
+def notification_handler(sender, data):
+    try:
+        value = data.decode('utf-8')
+        
+        if sender.uuid == CHAR_BPM:
+            sensor_data['bpm'] = float(value)
+        elif sender.uuid == CHAR_SPO2:
+            sensor_data['spo2'] = float(value)
+        elif sender.uuid == CHAR_TEMP:
+            sensor_data['temperature'] = float(value)
+        elif sender.uuid == CHAR_PRESS:
+            sensor_data['pressure'] = float(value)
+        elif sender.uuid == CHAR_GSR:
+            sensor_data['gsr'] = float(value)
+        
+        # Enviar para API quando tiver dados suficientes
+        if len(sensor_data) >= 3:
+            send_to_api()
+            
+    except Exception as e:
+        print(f"Erro: {e}")
+
+def send_to_api():
+    try:
+        response = requests.post(API_URL, json=sensor_data, timeout=5)
+        if response.status_code == 200:
+            print(f"✅ Dados enviados: {sensor_data}")
+        else:
+            print(f"❌ Erro API: {response.status_code}")
+    except Exception as e:
+        print(f"❌ Erro conexão: {e}")
+
+async def main():
+    # Buscar ESP32
+    from bleak import BleakScanner
+    devices = await BleakScanner.discover()
+    esp32_device = None
+    
+    for device in devices:
+        if device.name == ESP32_NAME:
+            esp32_device = device
+            break
+    
+    if not esp32_device:
+        print("❌ ESP32 não encontrado")
+        return
+    
+    print(f"✅ ESP32 encontrado: {esp32_device.address}")
+    
+    # Conectar
+    async with BleakClient(esp32_device.address) as client:
+        print("🔗 Conectado ao ESP32!")
+        
+        # Inscrever-se nas notificações
+        await client.start_notify(CHAR_BPM, notification_handler)
+        await client.start_notify(CHAR_SPO2, notification_handler)
+        await client.start_notify(CHAR_TEMP, notification_handler)
+        await client.start_notify(CHAR_PRESS, notification_handler)
+        await client.start_notify(CHAR_GSR, notification_handler)
+        
+        print("📡 Recebendo dados...")
+        
+        # Manter conexão ativa
+        while True:
+            await asyncio.sleep(1)
+
+if __name__ == "__main__":
+    asyncio.run(main())`}</pre>
+                            </div>
+                            <p><strong>Como usar:</strong></p>
+                            <ol>
+                              <li>Instale: <code>pip install bleak requests</code></li>
+                              <li>Execute: <code>python ble_bridge.py</code></li>
+                              <li>Deixe rodando e veja os dados no site!</li>
+                            </ol>
+                          </details>
+                        </div>
+                      </div>
+                    </div>
+
                     <div className="help">
-                      <h4>❓ Precisa de ajuda?</h4>
+                      <h4>❓ Problemas comuns</h4>
                       <ul>
-                        <li>🔄 <strong>Não aparece dados?</strong> Verifique se o WiFi está correto</li>
-                        <li>🔧 <strong>Erro no código?</strong> Instale as bibliotecas: WiFi, HTTPClient, ArduinoJson</li>
-                        <li>📡 <strong>WiFi não conecta?</strong> Verifique nome e senha da rede</li>
-                        <li>⚡️ <strong>ESP32 não liga?</strong> Verifique a alimentação (USB ou 5V)</li>
+                        <li>🔍 <strong>ESP32 não aparece:</strong> Verifique se está ligado e com o código carregado</li>
+                        <li>📱 <strong>Não conecta via Bluetooth:</strong> Ative o Bluetooth no dispositivo</li>
+                        <li>📊 <strong>Dados não aparecem:</strong> Verifique se o bridge está rodando</li>
+                        <li>🔋 <strong>ESP32 desliga:</strong> Verifique alimentação (USB ou 5V estável)</li>
+                        <li>📡 <strong>Conexão instável:</strong> Mantenha dispositivos próximos (máximo 10m)</li>
                       </ul>
+                    </div>
+
+                    <div className="current-code">
+                      <h4>✅ Seu código atual está correto!</h4>
+                      <p>O ESP32 já está programado para:</p>
+                      <ul>
+                        <li>📡 Transmitir via Bluetooth Low Energy (BLE)</li>
+                        <li>❤️ Monitorar batimentos cardíacos com MAX30105</li>
+                        <li>🫁 Medir saturação de oxigênio (SpO2)</li>
+                        <li>🌡️ Temperatura com sensor LM35</li>
+                        <li>📏 Pressão com sensor FSR</li>
+                        <li>🖐️ Resistência da pele (GSR)</li>
+                        <li>📐 Dados do acelerômetro MPU6050</li>
+                      </ul>
+                      <p><strong>Não precisa alterar nada no código!</strong> Apenas ligue o ESP32 e conecte via Bluetooth.</p>
                     </div>
                   </div>
                 </div>
