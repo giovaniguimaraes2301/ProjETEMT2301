@@ -935,6 +935,43 @@ tbody tr:hover {
   line-height: 1.5;
 }
 
+.ble-test-section {
+  background: #f0f9ff;
+  border-radius: 10px;
+  padding: 20px;
+  margin: 16px 0;
+  border: 1px solid #bae6fd;
+  border-left: 4px solid var(--primary-blue);
+}
+
+.test-steps {
+  margin-top: 16px;
+}
+
+.step {
+  background: #fff;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.step h5 {
+  color: var(--success);
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.step ul {
+  margin-left: 20px;
+  margin-top: 8px;
+}
+
+.step li {
+  margin-bottom: 4px;
+  font-size: 14px;
+}
+
 details {
   margin: 12px 0;
   border: 1px solid #e2e8f0;
@@ -981,13 +1018,15 @@ code {
 }
 
 .App.dark-mode .ble-info,
-.App.dark-mode .current-code {
+.App.dark-mode .current-code,
+.App.dark-mode .ble-test-section {
   background: #1e293b;
   border-color: #334155;
 }
 
 .App.dark-mode .ble-info .info-grid > div,
-.App.dark-mode .option {
+.App.dark-mode .option,
+.App.dark-mode .step {
   background: #334155;
   border-color: #475569;
 }
