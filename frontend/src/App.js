@@ -757,7 +757,7 @@ function App() {
         {/* Sidebar */}
         <nav className="sidebar">
           <h2><i className="fas fa-heartbeat"></i> VitalTech</h2>
-          {['Dashboard', 'Dados de Saúde', 'Alertas', 'Relatórios', 'Configurações'].map(section => (
+          {['Dashboard', 'Dados de Saúde', 'Alertas', 'ESP32', 'Relatórios', 'Configurações'].map(section => (
             <button 
               key={section}
               onClick={() => setActiveSection(section)}
