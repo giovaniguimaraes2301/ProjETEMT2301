@@ -512,3 +512,8 @@ async def cleanup_demo_data():
 
 # Incluir router na aplicação
 app.include_router(api_router)
+
+# === EXECUÇÃO DO SERVIDOR ===
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8001)
