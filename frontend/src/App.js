@@ -947,6 +947,138 @@ function App() {
               </div>
             )}
 
+            {/* ESP32 Configuration */}
+            {activeSection === 'ESP32' && (
+              <div className="card">
+                <h3>Configuração ESP32</h3>
+                <div className="esp32-config">
+                  <div className="status-section">
+                    <h4>Status da Conexão</h4>
+                    <div className={`status-indicator ${esp32Status.connected ? 'connected' : 'disconnected'}`}>
+                      <i className={`fas fa-${esp32Status.connected ? 'wifi' : 'wifi-slash'}`}></i>
+                      <span>{esp32Status.connected ? 'ESP32 Conectado' : 'ESP32 Desconectado'}</span>
+                    </div>
+                    {esp32Status.lastReading && (
+                      <div className="last-reading">
+                        <small>Última leitura: {new Date(esp32Status.lastReading.timestamp).toLocaleString()}</small>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="config-section">
+                    <h4>Código para seu ESP32</h4>
+                    <p>📋 <strong>Copie este código e cole no Arduino IDE:</strong></p>
+                    
+                    <div className="code-block">
+                      <pre>{`#include <WiFi.h>
+#include <HTTPClient.h>
+#include <ArduinoJson.h>
+
+// ⚡️ CONFIGURE SEU WIFI AQUI:
+const char* ssid = "${esp32Config.wifiSSID || 'SEU_WIFI_AQUI'}";
+const char* password = "${esp32Config.wifiPassword || 'SUA_SENHA_AQUI'}";
+
+// 🌐 URL da API (NÃO MEXER):
+const char* apiURL = "${esp32Config.apiURL}";
+
+void setup() {
+  Serial.begin(115200);
+  
+  // Conectar WiFi
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    Serial.println("Conectando WiFi...");
+  }
+  Serial.println("✅ WiFi conectado!");
+  Serial.println(WiFi.localIP());
+}
+
+void loop() {
+  // 📊 Leia seus sensores aqui
+  float bpm = 75.0;        // Substitua pela leitura real
+  float spo2 = 98.0;       // Substitua pela leitura real  
+  float temp = 36.5;       // Substitua pela leitura real
+  float pressure = 120.0;  // Substitua pela leitura real
+  float gsr = 400.0;       // Substitua pela leitura real
+  
+  // 📤 Enviar dados
+  enviarDados(bpm, spo2, temp, pressure, gsr);
+  delay(3000); // Enviar a cada 3 segundos
+}
+
+void enviarDados(float bpm, float spo2, float temp, float pressure, float gsr) {
+  HTTPClient http;
+  http.begin(apiURL);
+  http.addHeader("Content-Type", "application/json");
+  
+  String json = "{";
+  json += "\\"bpm\\":" + String(bpm) + ",";
+  json += "\\"spo2\\":" + String(spo2) + ",";
+  json += "\\"temperature\\":" + String(temp) + ",";
+  json += "\\"pressure\\":" + String(pressure) + ",";
+  json += "\\"gsr\\":" + String(gsr);
+  json += "}";
+  
+  int responseCode = http.POST(json);
+  if (responseCode == 200) {
+    Serial.println("✅ Dados enviados!");
+  } else {
+    Serial.println("❌ Erro: " + String(responseCode));
+  }
+  http.end();
+}`}</pre>
+                    </div>
+
+                    <div className="config-form">
+                      <h4>⚙️ Configurar WiFi</h4>
+                      <div className="form-group">
+                        <label>Nome da Rede WiFi (SSID):</label>
+                        <input
+                          type="text"
+                          value={esp32Config.wifiSSID}
+                          onChange={(e) => setEsp32Config({...esp32Config, wifiSSID: e.target.value})}
+                          placeholder="Ex: MinhaCasa_WiFi"
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Senha do WiFi:</label>
+                        <input
+                          type="password"
+                          value={esp32Config.wifiPassword}
+                          onChange={(e) => setEsp32Config({...esp32Config, wifiPassword: e.target.value})}
+                          placeholder="Ex: minhasenha123"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="instructions">
+                      <h4>📋 Como usar:</h4>
+                      <ol>
+                        <li>✏️ <strong>Preencha o WiFi</strong> acima</li>
+                        <li>📋 <strong>Copie o código</strong> que apareceu</li>
+                        <li>💾 <strong>Cole no Arduino IDE</strong></li>
+                        <li>🔧 <strong>Conecte seus sensores</strong> ao ESP32</li>
+                        <li>⚡️ <strong>Faça upload</strong> para o ESP32</li>
+                        <li>🔌 <strong>Ligue o ESP32</strong> - ele conectará automaticamente!</li>
+                        <li>📱 <strong>Volte aqui</strong> para ver os dados em tempo real</li>
+                      </ol>
+                    </div>
+
+                    <div className="help">
+                      <h4>❓ Precisa de ajuda?</h4>
+                      <ul>
+                        <li>🔄 <strong>Não aparece dados?</strong> Verifique se o WiFi está correto</li>
+                        <li>🔧 <strong>Erro no código?</strong> Instale as bibliotecas: WiFi, HTTPClient, ArduinoJson</li>
+                        <li>📡 <strong>WiFi não conecta?</strong> Verifique nome e senha da rede</li>
+                        <li>⚡️ <strong>ESP32 não liga?</strong> Verifique a alimentação (USB ou 5V)</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Configurações */}
             {activeSection === 'Configurações' && (
               <div className="card">
