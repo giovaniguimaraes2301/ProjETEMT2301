@@ -24,6 +24,13 @@ from ai_analysis import analyzer
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
+# Configurar timezone de Brasília
+BRAZIL_TZ = pytz.timezone('America/Sao_Paulo')
+
+def get_brazil_time():
+    """Retorna o horário atual de Brasília"""
+    return datetime.now(BRAZIL_TZ)
+
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
