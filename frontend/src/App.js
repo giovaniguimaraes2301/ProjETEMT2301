@@ -767,6 +767,7 @@ function App() {
                 section === 'Dashboard' ? 'chart-line' :
                 section === 'Dados de Saúde' ? 'user' :
                 section === 'Alertas' ? 'exclamation-triangle' :
+                section === 'ESP32' ? 'microchip' :
                 section === 'Relatórios' ? 'file-pdf' : 'cog'
               }`}></i>
               {section}
