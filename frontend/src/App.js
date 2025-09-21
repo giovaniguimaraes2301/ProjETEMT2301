@@ -1023,31 +1023,49 @@ function App() {
                     </div>
 
                     <div className="bridge-section">
-                      <h4>🌉 Bridge Bluetooth ➜ Web</h4>
-                      <p>Para conectar automaticamente, você pode usar nosso bridge:</p>
+                      <h4>🌉 Bridge Bluetooth Windows ➜ Web</h4>
+                      <p><strong>Use nosso script Python para conectar automaticamente:</strong></p>
                       
                       <div className="bridge-options">
                         <div className="option">
-                          <h5>📱 Opção 1: Aplicativo Mobile (Recomendado)</h5>
-                          <p>Use um app BLE Scanner para conectar e os dados aparecerão aqui automaticamente.</p>
+                          <h5>💻 Instalação Rápida Windows</h5>
+                          <ol>
+                            <li><strong>Instale Python:</strong> <a href="https://python.org" target="_blank">python.org</a> (marque "Add to PATH")</li>
+                            <li><strong>Abra CMD:</strong> Win+R → digite "cmd" → Enter</li>
+                            <li><strong>Instale bibliotecas:</strong> <code>pip install bleak requests</code></li>
+                            <li><strong>Baixe o bridge:</strong> <a href="/ble_bridge_esp32.py" target="_blank">ble_bridge_esp32.py</a></li>
+                            <li><strong>Execute:</strong> <code>python ble_bridge_esp32.py</code></li>
+                          </ol>
                         </div>
                         
                         <div className="option">
-                          <h5>💻 Opção 2: Bridge Python (Avançado)</h5>
-                          <p>Para desenvolvedores: use nosso script Python que conecta via Bluetooth e envia para o site.</p>
+                          <h5>📝 Código do Bridge (Salve como ble_bridge_esp32.py)</h5>
                           <details>
-                            <summary>Ver código do bridge</summary>
+                            <summary>Ver código completo</summary>
                             <div className="code-block">
-                              <pre>{`# Bridge Bluetooth -> Web
-# Salve como: ble_bridge.py
+                              <pre>{`#!/usr/bin/env python3
+"""
+Bridge Bluetooth para ESP32 VitalTech
+Conecta via BLE ao ESP32 e envia dados para a API web
+"""
 
 import asyncio
 import requests
-from bleak import BleakClient
 import json
+import time
+from datetime import datetime
+import logging
+
+try:
+    from bleak import BleakClient, BleakScanner
+except ImportError:
+    print("❌ Erro: Instale a biblioteca bleak")
+    print("Execute: pip install bleak requests")
+    exit(1)
 
 # Configurações
 ESP32_NAME = "ESP32_S3_Health"
+SERVICE_UUID = "49535343-FE7D-4AE5-8FA9-9FAFD205E455"
 API_URL = "${esp32Config.apiURL}"
 
 # UUIDs das características
@@ -1057,83 +1075,181 @@ CHAR_TEMP = "6E400004-B5A3-F393-E0A9-E50E24DCCA9E"
 CHAR_PRESS = "6E400005-B5A3-F393-E0A9-E50E24DCCA9E"
 CHAR_GSR = "6E400006-B5A3-F393-E0A9-E50E24DCCA9E"
 
-sensor_data = {}
+# Configurar logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
-def notification_handler(sender, data):
-    try:
-        value = data.decode('utf-8')
+class ESP32Bridge:
+    def __init__(self):
+        self.sensor_data = {}
+        self.last_send_time = 0
+        self.send_interval = 3.0  # Enviar a cada 3 segundos
         
-        if sender.uuid == CHAR_BPM:
-            sensor_data['bpm'] = float(value)
-        elif sender.uuid == CHAR_SPO2:
-            sensor_data['spo2'] = float(value)
-        elif sender.uuid == CHAR_TEMP:
-            sensor_data['temperature'] = float(value)
-        elif sender.uuid == CHAR_PRESS:
-            sensor_data['pressure'] = float(value)
-        elif sender.uuid == CHAR_GSR:
-            sensor_data['gsr'] = float(value)
-        
-        # Enviar para API quando tiver dados suficientes
-        if len(sensor_data) >= 3:
-            send_to_api()
+    def notification_handler(self, sender, data):
+        """Manipular notificações BLE do ESP32"""
+        try:
+            value = data.decode('utf-8').strip()
+            uuid = sender.uuid
             
-    except Exception as e:
-        print(f"Erro: {e}")
+            # Sensores principais
+            if uuid == CHAR_BPM:
+                self.sensor_data['bpm'] = float(value)
+                logger.info(f"❤️ BPM: {value}")
+            elif uuid == CHAR_SPO2:
+                self.sensor_data['spo2'] = float(value)
+                logger.info(f"🫁 SpO2: {value}%")
+            elif uuid == CHAR_TEMP:
+                self.sensor_data['temperature'] = float(value)
+                logger.info(f"🌡️ Temperatura: {value}°C")
+            elif uuid == CHAR_PRESS:
+                self.sensor_data['pressure'] = float(value)
+                logger.info(f"📏 Pressão: {value}")
+            elif uuid == CHAR_GSR:
+                self.sensor_data['gsr'] = float(value)
+                logger.info(f"🖐️ GSR: {value}")
+            
+            # Verificar se é hora de enviar dados
+            current_time = time.time()
+            if current_time - self.last_send_time >= self.send_interval:
+                self.send_to_api()
+                self.last_send_time = current_time
+                
+        except Exception as e:
+            logger.error(f"Erro ao processar notificação: {e}")
 
-def send_to_api():
-    try:
-        response = requests.post(API_URL, json=sensor_data, timeout=5)
-        if response.status_code == 200:
-            print(f"✅ Dados enviados: {sensor_data}")
-        else:
-            print(f"❌ Erro API: {response.status_code}")
-    except Exception as e:
-        print(f"❌ Erro conexão: {e}")
+    def send_to_api(self):
+        """Enviar dados para a API web"""
+        try:
+            # Preparar dados completos
+            full_data = {
+                **self.sensor_data,
+                'device_id': 'esp32_real',
+                'timestamp': datetime.now().isoformat()
+            }
+            
+            # Enviar apenas se tiver dados suficientes
+            if len(self.sensor_data) >= 2:  # Pelo menos 2 sensores
+                response = requests.post(API_URL, json=full_data, timeout=5)
+                if response.status_code == 200:
+                    logger.info(f"✅ Dados enviados para o site!")
+                else:
+                    logger.warning(f"❌ Erro API: {response.status_code}")
+            else:
+                logger.debug("Aguardando mais dados dos sensores...")
+                
+        except requests.exceptions.RequestException as e:
+            logger.error(f"❌ Erro de conexão com API: {e}")
+        except Exception as e:
+            logger.error(f"❌ Erro ao enviar dados: {e}")
+
+    async def find_esp32(self):
+        """Buscar ESP32 via Bluetooth"""
+        logger.info("🔍 Procurando ESP32...")
+        
+        try:
+            devices = await BleakScanner.discover(timeout=10.0)
+            
+            for device in devices:
+                if device.name and ESP32_NAME in device.name:
+                    logger.info(f"✅ ESP32 encontrado: {device.name} ({device.address})")
+                    return device
+            
+            logger.warning(f"❌ ESP32 '{ESP32_NAME}' não encontrado")
+            logger.info("Dispositivos Bluetooth disponíveis:")
+            for device in devices:
+                if device.name:
+                    logger.info(f"  - {device.name}")
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"❌ Erro ao buscar dispositivos: {e}")
+            return None
+
+    async def connect_and_receive(self):
+        """Conectar ao ESP32 e receber dados"""
+        esp32_device = await self.find_esp32()
+        
+        if not esp32_device:
+            return False
+        
+        try:
+            async with BleakClient(esp32_device.address) as client:
+                logger.info(f"🔗 Conectado ao ESP32!")
+                
+                # Inscrever-se nas notificações dos sensores
+                characteristics = [CHAR_BPM, CHAR_SPO2, CHAR_TEMP, CHAR_PRESS, CHAR_GSR]
+                
+                connected_chars = 0
+                for char_uuid in characteristics:
+                    try:
+                        await client.start_notify(char_uuid, self.notification_handler)
+                        connected_chars += 1
+                    except Exception as e:
+                        logger.warning(f"Não foi possível se inscrever em {char_uuid}: {e}")
+                
+                logger.info(f"📡 Conectado em {connected_chars} sensores")
+                logger.info("🎯 Recebendo dados... (Ctrl+C para parar)")
+                logger.info("📊 Veja os dados no site: ${window.location.origin}")
+                
+                # Manter conexão ativa
+                try:
+                    while True:
+                        await asyncio.sleep(1)
+                        
+                        # Verificar se ainda está conectado
+                        if not client.is_connected:
+                            logger.warning("⚠️ Conexão perdida")
+                            break
+                            
+                except KeyboardInterrupt:
+                    logger.info("🛑 Parando bridge...")
+                    
+                return True
+                
+        except Exception as e:
+            logger.error(f"❌ Erro de conexão: {e}")
+            return False
 
 async def main():
-    # Buscar ESP32
-    from bleak import BleakScanner
-    devices = await BleakScanner.discover()
-    esp32_device = None
+    """Função principal"""
+    bridge = ESP32Bridge()
     
-    for device in devices:
-        if device.name == ESP32_NAME:
-            esp32_device = device
+    print("🚀 VitalTech ESP32 Bridge para Windows")
+    print(f"📡 Procurando: {ESP32_NAME}")
+    print(f"🌐 Site: ${window.location.origin}")
+    print("="*50)
+    
+    max_attempts = 3
+    attempt = 1
+    
+    while attempt <= max_attempts:
+        logger.info(f"🔄 Tentativa {attempt}/{max_attempts}")
+        
+        success = await bridge.connect_and_receive()
+        
+        if success:
+            logger.info("✅ Sessão concluída")
             break
+        else:
+            logger.warning(f"❌ Falha na tentativa {attempt}")
+            
+        if attempt < max_attempts:
+            logger.info("⏳ Aguardando 10 segundos...")
+            await asyncio.sleep(10)
+            
+        attempt += 1
     
-    if not esp32_device:
-        print("❌ ESP32 não encontrado")
-        return
-    
-    print(f"✅ ESP32 encontrado: {esp32_device.address}")
-    
-    # Conectar
-    async with BleakClient(esp32_device.address) as client:
-        print("🔗 Conectado ao ESP32!")
-        
-        # Inscrever-se nas notificações
-        await client.start_notify(CHAR_BPM, notification_handler)
-        await client.start_notify(CHAR_SPO2, notification_handler)
-        await client.start_notify(CHAR_TEMP, notification_handler)
-        await client.start_notify(CHAR_PRESS, notification_handler)
-        await client.start_notify(CHAR_GSR, notification_handler)
-        
-        print("📡 Recebendo dados...")
-        
-        # Manter conexão ativa
-        while True:
-            await asyncio.sleep(1)
+    logger.info("🔚 Bridge finalizado")
 
 if __name__ == "__main__":
-    asyncio.run(main())`}</pre>
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("🛑 Bridge interrompido pelo usuário")
+    except Exception as e:
+        logger.error(f"❌ Erro fatal: {e}")`}</pre>
                             </div>
-                            <p><strong>Como usar:</strong></p>
-                            <ol>
-                              <li>Instale: <code>pip install bleak requests</code></li>
-                              <li>Execute: <code>python ble_bridge.py</code></li>
-                              <li>Deixe rodando e veja os dados no site!</li>
-                            </ol>
                           </details>
                         </div>
                       </div>
