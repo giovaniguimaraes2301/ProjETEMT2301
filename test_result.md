@@ -101,3 +101,86 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: "User is trying to run VitalTech project locally on Windows but facing issues: backend not starting, frontend dependencies missing, ESP32 bridge connection failures. Need complete setup guide and fix server execution issues."
+
+backend:
+  - task: "Fix server.py execution issue"
+    implemented: true  
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "user"
+        comment: "Backend not starting when running python server.py - no output and returns to prompt"
+      - working: true
+        agent: "main" 
+        comment: "Added if __name__ == '__main__' block with uvicorn.run() to server.py"
+
+  - task: "Local environment configuration"
+    implemented: true
+    working: true  
+    file: "backend/.env, frontend/.env"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "user"
+        comment: "Configuration pointing to production URLs, not local development"
+      - working: true
+        agent: "main"
+        comment: "Created local.env files and setup scripts for local development"
+
+frontend:
+  - task: "Frontend dependency installation"
+    implemented: true
+    working: true
+    file: "frontend/package.json"
+    stuck_count: 0  
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "user"
+        comment: "yarn not recognized command, npm not found"
+      - working: true
+        agent: "main"
+        comment: "Created setup scripts supporting both npm and yarn, with fallback options"
+
+  - task: "Local backend URL configuration"
+    implemented: true
+    working: true
+    file: "frontend/.env"
+    stuck_count: 0
+    priority: "high" 
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "user"
+        comment: "Frontend trying to connect to production URL instead of localhost"
+      - working: true
+        agent: "main"  
+        comment: "Updated .env to use http://localhost:8001 for local development"
+
+metadata:
+  created_by: "main_agent"
+  version: "1.1"
+  test_sequence: 1  
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "Fix server.py execution issue"
+    - "Local environment configuration"
+    - "Frontend dependency installation"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "main"
+    message: "Fixed critical backend startup issue by adding proper __main__ block. Created comprehensive setup guides, automated installation scripts, and local environment configurations. Need testing to verify backend starts correctly and frontend connects to local backend."
