@@ -35,6 +35,13 @@ function App() {
   const [vitalSigns, setVitalSigns] = useState([]);
   const [latestReadings, setLatestReadings] = useState({});
   const [alerts, setAlerts] = useState([]);
+  const [esp32Status, setEsp32Status] = useState({ connected: false, lastReading: null });
+  const [esp32Config, setEsp32Config] = useState({
+    wifiSSID: '',
+    wifiPassword: '',
+    deviceName: 'ESP32-VitalTech',
+    apiURL: `${API}/esp32/data`
+  });
   const [profile, setProfile] = useState({
     nome: 'Visitante da Feira',
     idade: '',
