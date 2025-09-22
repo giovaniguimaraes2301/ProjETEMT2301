@@ -467,171 +467,88 @@ function App() {
 
   // Preparar dados para gráfico
   const prepareChartData = () => {
-    // Se não há dados, retornar estrutura vazia
-    if (!vitalSigns || vitalSigns.length === 0) {
-      console.log('Sem dados para o gráfico');
-      return {
-        labels: ['Aguardando dados...'],
-        datasets: [
-          {
-            label: 'Freq. Cardíaca (bpm)',
-            data: [0],
-            borderColor: '#3066d3',
-            backgroundColor: 'rgba(48, 102, 211, 0.1)',
-            tension: 0.2,
-            fill: false,
-          },
-          {
-            label: 'Pressão (mmHg)',
-            data: [0],
-            borderColor: '#e67e22',
-            backgroundColor: 'rgba(230, 126, 34, 0.1)',
-            tension: 0.2,
-            fill: false,
-          },
-          {
-            label: 'Oxigenação (%)',
-            data: [0],
-            borderColor: '#27ae60',
-            backgroundColor: 'rgba(39, 174, 96, 0.1)',
-            tension: 0.2,
-            fill: false,
-          },
-          {
-            label: 'Temperatura (°C)',
-            data: [0],
-            borderColor: '#c0392b',
-            backgroundColor: 'rgba(192, 57, 43, 0.1)',
-            tension: 0.2,
-            fill: false,
-          },
-          {
-            label: 'GSR (Ω)',
-            data: [0],
-            borderColor: '#8e44ad',
-            backgroundColor: 'rgba(142, 68, 173, 0.1)',
-            tension: 0.2,
-            fill: false,
-            yAxisID: 'y1',
-          },
-        ]
-      };
-    }
+    // --- Novo: preparar dados por sensor ---
+const timeZone = 'America/Sao_Paulo'; // fuso de Brasília
 
-    // Debug: Log dos dados recebidos
-    console.log('Dados vitais recebidos:', vitalSigns.slice(0, 5));
+// Retorna array de labels (horários) e dados para um sensor específico
+const prepareChartDataFor = (sensorKey) => {
+  // sensorKey: 'heart_rate', 'blood_pressure', 'oxygen_saturation', 'temperature', 'gsr'
+  const sensorData = [];
+  const timeLabels = [];
 
-    // Preparar dados organizados por sensor
-    const sensorData = {
-      heart_rate: [],
-      blood_pressure: [],
-      oxygen_saturation: [],
-      temperature: [],
-      gsr: []
+  if (!vitalSigns || vitalSigns.length === 0) {
+    return {
+      labels: ['Aguardando dados...'],
+      datasets: [
+        {
+          label: sensorKey,
+          data: [0],
+          tension: 0.2,
+          fill: false,
+        }
+      ]
     };
-    
-    const timeLabels = [];
-    
-    // Agrupar dados por timestamp (pegar os últimos 15 pontos)
-    const recentReadings = vitalSigns.slice(0, 30); // Mais dados para garantir cobertura
-    
-    // Criar um mapa de timestamps únicos
-    const timestampMap = new Map();
-    
-    recentReadings.forEach(reading => {
-      const timestamp = reading.timestamp;
-      const timeLabel = new Date(timestamp).toLocaleTimeString('pt-BR', { 
-        hour: '2-digit', 
-        minute: '2-digit',
-        second: '2-digit'
-      });
-      
-      if (!timestampMap.has(timestamp)) {
-        timestampMap.set(timestamp, {
-          time: timeLabel,
-          sensors: {}
-        });
+  }
+
+  // Pegar últimos 30 leituras (ou menos)
+  const recent = vitalSigns.slice(0, 60); // servidores já retornam decrescente
+
+  // Agrupar por timestamp — manter ordem cronológica
+  const map = new Map();
+  recent.forEach(reading => {
+    const ts = reading.timestamp || reading.time || reading.created_at || reading['timestamp'];
+    if (!ts) return;
+    const key = String(ts);
+    if (!map.has(key)) map.set(key, {});
+    // reading.sensor_type e reading.value usados no backend
+    const st = reading.sensor_type || reading.sensorType || reading.sensor;
+    const val = reading.value !== undefined ? reading.value : reading.value;
+    // registrar
+    const cur = map.get(key);
+    cur[st] = cur[st] || val;
+    // store device/time as well
+    cur._time = key;
+  });
+
+  // Ordena por timestamp e pega últimos 30 pontos
+  const entries = Array.from(map.values()).sort((a, b) => new Date(a._time) - new Date(b._time)).slice(-30);
+
+  entries.forEach(e => {
+    // formata horário em fuso de Brasília
+    const d = new Date(e._time);
+    const label = d.toLocaleString('pt-BR', {
+      timeZone,
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+    timeLabels.push(label);
+
+    // valor do sensorKey: mapeie sensorKey para sensor_type usado no backend
+    // sensorKey as expected values:
+    // 'heart_rate', 'blood_pressure', 'oxygen_saturation', 'temperature', 'gsr'
+    sensorData.push(e[sensorKey] !== undefined ? e[sensorKey] : null);
+  });
+
+  return {
+    labels: timeLabels,
+    datasets: [
+      {
+        label:
+          sensorKey === 'heart_rate' ? 'Freq. Cardíaca (bpm)' :
+          sensorKey === 'blood_pressure' ? 'Pressão (mmHg)' :
+          sensorKey === 'oxygen_saturation' ? 'Oxigenação (%)' :
+          sensorKey === 'temperature' ? 'Temperatura (°C)' :
+          sensorKey === 'gsr' ? 'GSR' : sensorKey,
+        data: sensorData,
+        tension: 0.2,
+        fill: false,
+        pointRadius: 3,
       }
-      
-      timestampMap.get(timestamp).sensors[reading.sensor_type] = reading.value;
-    });
-    
-    // Converter mapa para arrays ordenados
-    const sortedEntries = Array.from(timestampMap.entries())
-      .sort((a, b) => new Date(a[0]) - new Date(b[0]))
-      .slice(-15); // Últimos 15 pontos
-    
-    // Extrair labels e dados
-    sortedEntries.forEach(([timestamp, data]) => {
-      timeLabels.push(data.time);
-      sensorData.heart_rate.push(data.sensors.heart_rate || null);
-      sensorData.blood_pressure.push(data.sensors.blood_pressure || null);
-      sensorData.oxygen_saturation.push(data.sensors.oxygen_saturation || null);
-      sensorData.temperature.push(data.sensors.temperature || null);
-      sensorData.gsr.push(data.sensors.gsr || null);
-    });
+    ]
+  };
+};
 
-    // Debug: Log dos dados processados
-    console.log('Labels de tempo:', timeLabels);
-    console.log('Dados dos sensores:', sensorData);
-
-    const datasets = [
-      {
-        label: 'Freq. Cardíaca (bpm)',
-        data: sensorData.heart_rate,
-        borderColor: '#3066d3',
-        backgroundColor: 'rgba(48, 102, 211, 0.1)',
-        tension: 0.2,
-        fill: false,
-        pointRadius: 4,
-        pointHoverRadius: 6,
-      },
-      {
-        label: 'Pressão (mmHg)',
-        data: sensorData.blood_pressure,
-        borderColor: '#e67e22',
-        backgroundColor: 'rgba(230, 126, 34, 0.1)',
-        tension: 0.2,
-        fill: false,
-        pointRadius: 4,
-        pointHoverRadius: 6,
-      },
-      {
-        label: 'Oxigenação (%)',
-        data: sensorData.oxygen_saturation,
-        borderColor: '#27ae60',
-        backgroundColor: 'rgba(39, 174, 96, 0.1)',
-        tension: 0.2,
-        fill: false,
-        pointRadius: 4,
-        pointHoverRadius: 6,
-      },
-      {
-        label: 'Temperatura (°C)',
-        data: sensorData.temperature,
-        borderColor: '#c0392b',
-        backgroundColor: 'rgba(192, 57, 43, 0.1)',
-        tension: 0.2,
-        fill: false,
-        pointRadius: 4,
-        pointHoverRadius: 6,
-      },
-      {
-        label: 'GSR (Ω)',
-        data: sensorData.gsr,
-        borderColor: '#8e44ad',
-        backgroundColor: 'rgba(142, 68, 173, 0.1)',
-        tension: 0.2,
-        fill: false,
-        pointRadius: 4,
-        pointHoverRadius: 6,
-        yAxisID: 'y1', // Eixo secundário para GSR
-      },
-    ];
-
-    const result = { labels: timeLabels, datasets };
-    console.log('Resultado final do gráfico:', result);
-    return result;
   };
 
   const chartOptions = {
@@ -760,7 +677,7 @@ function App() {
         {/* Sidebar */}
         <nav className="sidebar">
           <h2><i className="fas fa-heartbeat"></i> VitalTech</h2>
-          {['Dashboard', 'Dados de Saúde', 'Alertas', 'ESP32', 'Relatórios', 'Configurações'].map(section => (
+          {['Dashboard', 'Dados de Saúde', 'Alertas', 'Relatórios', 'Configurações'].map(section => (
             <button 
               key={section}
               onClick={() => setActiveSection(section)}
@@ -807,7 +724,32 @@ function App() {
                 
                 {/* Chart */}
                 <div className="chart-container">
-                  <Line data={prepareChartData()} options={chartOptions} />
+                  <div className="charts-grid">
+  <div className="chart-card">
+    <h4>Frequência Cardíaca (bpm)</h4>
+    <Line data={prepareChartDataFor('heart_rate')} options={chartOptions} />
+  </div>
+
+  <div className="chart-card">
+    <h4>Oxigenação (SpO₂ %)</h4>
+    <Line data={prepareChartDataFor('oxygen_saturation')} options={chartOptions} />
+  </div>
+
+  <div className="chart-card">
+    <h4>Temperatura (°C)</h4>
+    <Line data={prepareChartDataFor('temperature')} options={chartOptions} />
+  </div>
+
+  <div className="chart-card">
+    <h4>Pressão (mmHg)</h4>
+    <Line data={prepareChartDataFor('blood_pressure')} options={chartOptions} />
+  </div>
+
+  <div className="chart-card">
+    <h4>GSR</h4>
+    <Line data={prepareChartDataFor('gsr')} options={chartOptions} />
+  </div>
+</div>
                 </div>
 
                 {/* Current Values */}
