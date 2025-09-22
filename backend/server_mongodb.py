@@ -42,6 +42,54 @@ simulation_active = False
 
 # === ENDPOINTS BÁSICOS ===
 
+@api_router.post("/esp32/data")
+async def receive_esp32_data(payload: Dict[str, Any]):
+    """
+    Recebe o JSON enviado pelo bridge do ESP32 e converte em leituras individuais
+    que serão salvas no mecanismo existente (mongodb_fallback.save_vital_sign).
+    Espera o formato:
+    {
+      "bpm": <valor>,
+      "spo2": <valor>,
+      "temperature": <valor>,
+      "pressure": <valor>,
+      "gsr": <valor>,
+      "device_id": <id_esp32>,
+      "timestamp": <iso8601 com offset -03:00>
+    }
+    """
+    try:
+        # validar keys mínimas
+        device_id = payload.get("device_id", "esp32_unknown")
+        ts = payload.get("timestamp")
+        # Não forçar parsing de ts; armazenamos como recebido (FastAPI/PyMongo aceitará string).
+        # Criar uma leitura por sensor (somente quando existe valor não-nulo)
+        sensor_map = {
+            "bpm": "heart_rate",
+            "spo2": "oxygen_saturation",
+            "temperature": "temperature",
+            "pressure": "blood_pressure",  # mapeado para blood_pressure no backend
+            "gsr": "gsr"
+        }
+
+        saved_ids = []
+        for key, sensor_type in sensor_map.items():
+            if key in payload and payload[key] is not None:
+                reading = {
+                    "sensor_type": sensor_type,
+                    "value": payload[key],
+                    "device_id": device_id,
+                    "timestamp": ts
+                }
+                doc_id = await mongodb_fallback.save_vital_sign(reading)
+                saved_ids.append(doc_id)
+
+        return {"message": "Leituras ESP32 recebidas", "saved": len(saved_ids), "ids": saved_ids}
+    except Exception as e:
+        logger.error(f"Erro ao processar /esp32/data: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @api_router.get("/")
 async def root():
     """Endpoint de teste"""
